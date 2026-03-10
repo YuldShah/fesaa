@@ -1,0 +1,29 @@
+# ── PyTorch (CUDA 12.8) ────────────────────────────────────────────────────────
+# Install torch+torchaudio FIRST with the CUDA index:
+#   pip install torch~=2.8.0 torchaudio~=2.8.0 --index-url https://download.pytorch.org/whl/cu128
+#
+# Then install the rest:
+#   pip install -r requirements.txt
+
+torch~=2.8.0
+torchaudio~=2.8.0
+
+# ── ASR / alignment ───────────────────────────────────────────────────────────
+whisperx==3.8.1
+webrtcvad-wheels>=2.0.14,<3.0
+
+# ── Web framework ─────────────────────────────────────────────────────────────
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+python-multipart>=0.0.12,<1.0
+
+# ── Task queue ────────────────────────────────────────────────────────────────
+celery[redis]>=5.4,<6.0
+redis>=5.0,<6.0
+
+# ── Config ────────────────────────────────────────────────────────────────────
+pydantic>=2.9,<3.0
+pydantic-settings>=2.5,<3.0
+
+# ── LLM evaluation ───────────────────────────────────────────────────────────
+google-genai>=1.0,<2.0

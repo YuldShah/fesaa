@@ -1,0 +1,98 @@
+﻿# MISSION
+You are an Elite Backend & ML Engineer. Your task is to build a highly scalable, modular backend API for an IELTS Audio Assessment application from scratch. We are discarding an old, flawed prototype and building the "V2" architecture. Your goal is to write clean, well-documented, production-ready Python code (FastAPI + Celery) focused entirely on the backend orchestration, machine learning inference, and LLM evaluation. No frontend code is required.
+
+# THE MISTAKES OF V1 (WHAT NOT TO DO)
+1. **The FFmpeg Silence Mistake:** V1 used ffmpeg silencedetect to find pauses. This failed because background noise prevented the volume from dropping. **Solution:** We will use a neural VAD (Voice Activity Detection).
+2. **The GoP Mistake:** V1 used a wav2vec2-TIMIT model for Goodness of Pronunciation. It penalized non-American accents heavily. **Solution:** We will use ASR Confidence as a proxy for intelligibility.
+3. **The Sequential VRAM Bloat:** V1 loaded Whisper and Wav2Vec2 simultaneously, crashing 12GB GPUs. **Solution:** We will use one unified model family (WhisperX) that handles VAD, ASR, and Alignment in a single pass.
+4. **Hardcoded Heuristic Scoring:** V1 tried to calculate IELTS bands using hardcoded math. **Solution:** Python will ONLY calculate raw metrics. We pass these metrics to Gemini to determine the actual IELTS band scores based on the official rubric.
+
+# THE NEW ARCHITECTURE (V2)
+1. **Framework:** FastAPI (REST API) + Celery (Task Queue) + Redis (Broker).
+2. **Audio Processing:** WhisperX (loads Whisper + PyAnnote VAD + Phoneme Aligner).
+3. **LLM Evaluator:** Google Gemini (Gemini 3 Flash / 2.5 Flash).
+4. **Design Pattern:** Use the Strategy Pattern. Create interfaces for ASRProvider and PronunciationProvider. Implement the WhisperX versions. Leave stubs for future providers (like Azure or NeMo). All thresholds configurable via .env.
+
+# PIPELINE EXECUTION FLOW
+1. **Prep:** Convert audio to 16kHz, mono WAV.
+2. **VAD & ASR (WhisperX):** Run VAD, transcribe, and run Forced Alignment to get ms-accurate timestamps and word-level confidences.
+3. **Metric Calculation:** Calculate WPM, speech ratio, list of pauses (gaps > 0.4s between VAD segments). Calculate TTR. Find ratio of words with ASR confidence < 0.60 (flag these as intelligibility errors).
+4. **LLM Evaluation (Gemini):** Inject Transcript, Fluency Metrics, Lexical Metrics, and Pronunciation errors into Gemini. Force structured JSON output.
+5. **Save & Return:** Save compiled JSON report.
+
+# LLM SYSTEM PROMPT REQUIREMENTS
+You must create a file (e.g. llm_prompts.py) that contains this exact XML rubric to feed to Gemini:
+<ielts_rubric>
+  <criterion name="Fluency and Coherence">
+    <band score="9">Speaks fluently with only rare repetition or self correction; any hesitation is content-related rather than to find words or grammar. Speaks coherently with fully appropriate cohesive features. Develops topics fully and appropriately.</band>
+    <band score="8">Speaks fluently with only occasional repetition or self-correction; hesitation is usually content-related and only rarely to search for language. Develops topics coherently and appropriately.</band>
+    <band score="7">Speaks at length without noticeable effort or loss of coherence. May demonstrate language-related hesitation at times, or some repetition and/or self-correction. Uses a range of connectives and discourse markers with some flexibility.</band>
+    <band score="6">Is willing to speak at length, though may lose coherence at times due to occasional repetition, self-correction or hesitation. Uses a range of connectives and discourse markers but not always appropriately.</band>
+    <band score="5">Usually maintains flow of speech but uses repetition, self-correction and/or slow speech to keep going. May over-use certain connectives and discourse markers. Produces simple speech fluently, but more complex communication causes fluency problems.</band>
+    <band score="4">Cannot respond without noticeable pauses and may speak slowly, with frequent repetition and self-correction. Links basic sentences but with repetitious use of simple connectives and some breakdowns in coherence.</band>
+    <band score="3">Speaks with long pauses. Has limited ability to link simple sentences. Gives only simple responses and is frequently unable to convey basic message.</band>
+  </criterion>
+  <criterion name="Lexical Resource">
+    <band score="9">Uses vocabulary with full flexibility and precision in all topics. Uses idiomatic language naturally and accurately.</band>
+    <band score="8">Uses a wide vocabulary resource readily and flexibly to convey precise meaning. Uses less common and idiomatic vocabulary skilfully, with occasional inaccuracies. Uses paraphrase effectively as required.</band>
+    <band score="7">Uses vocabulary resource flexibly to discuss a variety of topics. Uses some less common and idiomatic vocabulary and shows some awareness of style and collocation, with some inappropriate choices. Uses paraphrase effectively.</band>
+    <band score="6">Has a wide enough vocabulary to discuss topics at length and make meaning clear in spite of inappropriacies. Generally paraphrases successfully.</band>
+    <band score="5">Manages to talk about familiar and unfamiliar topics but uses vocabulary with limited flexibility. Attempts to use paraphrase but with mixed success.</band>
+    <band score="4">Is able to talk about familiar topics but can only convey basic meaning on unfamiliar topics and makes frequent errors in word choice. Rarely attempts paraphrase.</band>
+    <band score="3">Uses simple vocabulary to convey personal information. Has insufficient vocabulary for less familiar topics.</band>
+  </criterion>
+  <criterion name="Grammatical Range and Accuracy">
+    <band score="9">Uses a full range of structures naturally and appropriately. Produces consistently accurate structures apart from 'slips' characteristic of native speaker speech.</band>
+    <band score="8">Uses a wide range of structures flexibly. Produces a majority of error-free sentences with only very occasional inappropriacies or basic/non-systematic errors.</band>
+    <band score="7">Uses a range of complex structures with some flexibility. Frequently produces error-free sentences, though some grammatical mistakes persist.</band>
+    <band score="6">Uses a mix of simple and complex structures, but with limited flexibility. May make frequent mistakes with complex structures, though these rarely cause comprehension problems.</band>
+    <band score="5">Produces basic sentence forms with reasonable accuracy. Uses a limited range of more complex structures, but these usually contain errors and may cause some comprehension problems.</band>
+    <band score="4">Produces basic sentence forms and some correct simple sentences but subordinate structures are rare. Errors are frequent and may lead to misunderstanding.</band>
+    <band score="3">Attempts basic sentence forms but with limited success, or relies on apparently memorised utterances. Makes numerous errors except in memorised expressions.</band>
+  </criterion>
+  <criterion name="Pronunciation">
+    <band score="9">Uses a full range of pronunciation features with precision and subtlety. Sustains flexible use of features throughout. Is effortless to understand.</band>
+    <band score="8">Uses a wide range of pronunciation features. Sustains flexible use of features, with only occasional lapses. Is easy to understand throughout; L1 accent has minimal effect on intelligibility.</band>
+    <band score="7">Shows all the positive features of Band 6 and some, but not all, of the positive features of Band 8.</band>
+    <band score="6">Uses a range of pronunciation features with mixed control. Shows some effective use of features but this is not sustained. Can generally be understood throughout, though mispronunciation of individual words or sounds reduces clarity at times.</band>
+    <band score="5">Shows all the positive features of Band 4 and some, but not all, of the positive features of Band 6.</band>
+    <band score="4">Uses a limited range of pronunciation features. Attempts to control features but lapses are frequent. Mispronunciations are frequent and cause some difficulty for the listener.</band>
+    <band score="3">Shows some of the features of Band 2 and some, but not all, of the positive features of Band 4.</band>
+  </criterion>
+</ielts_rubric>
+
+
+You must also embed these exact 11 rules into the Gemini Prompt:
+1. THIS IS AN AUDIO TRANSCRIPT. Evaluate spoken English, not spelling.
+2. NEVER penalize grammar for ASR homophone substitutions (it's vs its).
+3. Assume nonsensical words that sound similar are ASR errors.
+4. Stutters/false starts evaluated EXCLUSIVELY under Fluency.
+5. Ignore missing 'um's dropped by Whisper on noisy audio.
+6. ACCEPT NATURAL SPOKEN FEATURES (contractions, informal discourse markers).
+7. PENALIZE FORCED IDIOMS (raining cats and dogs).
+8. DISTINGUISH PAUSING TYPES: Differentiate natural chunking vs language-related hesitation.
+9. REWARD GRAMMATICAL RISK-TAKING.
+10. QUOTE-AND-MATCH: Explicitly quote the <ielts_rubric> to justify the score.
+11. PRONUNCIATION IS METRIC-DRIVEN: Base Pronunciation score heavily on the ASR confidence flags.
+
+# REQUIRED JSON SCHEMA FROM GEMINI
+{
+  "scores": { "fluency_coherence": 6.5, "lexical_resource": 7.0, "grammatical_range_accuracy": 6.0, "pronunciation": 6.5 },
+  "summary": "string - 2-3 sentences max. Encouraging opening.",
+  "domain_feedback": {
+    "fluency_coherence": { "strength": "...", "strength_evidence": "...", "error": "...", "error_evidence": "...", "rubric_justification": "exact quote from ielts_rubric", "drill": "..." },
+    "lexical_resource": { "strength": "...", "strength_evidence": "...", "error": "...", "error_evidence": "...", "rubric_justification": "exact quote from ielts_rubric", "drill": "..." },
+    "grammatical_range_accuracy": { "strength": "...", "strength_evidence": "...", "error": "...", "error_evidence": "...", "rubric_justification": "exact quote from ielts_rubric", "drill": "..." },
+    "pronunciation": { "strength": "...", "strength_evidence": "...", "error": "...", "error_evidence": "...", "rubric_justification": "exact quote from ielts_rubric", "drill": "..." }
+  },
+  "sample_rewrite": "optional, targets ~1 band above speaker, max 120 words"
+}
+
+# IMPLEMENTATION STEPS
+1. Initialize folders (api, worker, pipeline, core, models).
+2. Write settings.py (pydantic-settings).
+3. Build core pipeline (audio.py, whisperx_service.py, metrics.py). Handle CUDA cache clearing.
+4. Build Gemini LLM service using google-genai SDK.
+5. Create Celery task (tasks.py).
+6. Build FastAPI routers.
+7. Write README.md. Begin writing the codebase now.

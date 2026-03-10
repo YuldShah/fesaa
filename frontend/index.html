@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AA · Audio Assessment Control</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+  <style>
+    /* ── reset & tokens ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg0: #05070d;
+      --bg1: #0b0f1a;
+      --bg2: #111826;
+      --bg3: #182030;
+      --bd:  #1c2a3e;
+      --bdh: #253750;
+
+      --amber:  #e8971e;
+      --amberd: rgba(232,151,30,.10);
+      --amberg: rgba(232,151,30,.30);
+      --teal:   #1cd4c0;
+      --teald:  rgba(28,212,192,.10);
+      --green:  #22c55e;
+      --greend: rgba(34,197,94,.12);
+      --red:    #f43f5e;
+      --redd:   rgba(244,63,94,.12);
+
+      --t1: #dde5f4;
+      --t2: #7a90ad;
+      --t3: #3b5070;
+
+      --font:  'Syne', sans-serif;
+      --mono:  'DM Mono', monospace;
+      --r:     8px;
+      --r-lg:  14px;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg0);
+      color: var(--t1);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* subtle grain */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+      opacity: .6;
+    }
+
+    /* ── top bar ─────────────────────────────────────────────────────────── */
+    #topbar {
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      border-bottom: 1px solid var(--bd);
+      background: var(--bg1);
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      color: var(--t1);
+      text-decoration: none;
+    }
+
+    .logo-sub {
+      font-size: 10px;
+      font-family: var(--mono);
+      color: var(--t3);
+      letter-spacing: .08em;
+      margin-top: -2px;
+      font-weight: 400;
+    }
+
+    .sys-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--t3);
+      letter-spacing: .06em;
+    }
+
+    .sys-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: breathe 2.5s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+      0%,100% { opacity: 1; }
+      50% { opacity: .5; }
+    }
+
+    /* ── main scroll area ────────────────────────────────────────────────── */
+    #main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 32px 28px 48px;
+    }
+
+    /* ── upload zone ─────────────────────────────────────────────────────── */
+    #upload-section {
+      margin-bottom: 44px;
+    }
+
+    #upload-zone {
+      position: relative;
+      border: 1.5px dashed var(--bd);
+      border-radius: var(--r-lg);
+      background:
+        radial-gradient(ellipse 60% 80% at 50% 50%, var(--amberd) 0%, transparent 70%),
+        var(--bg1);
+      padding: 48px 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+      transition: border-color .2s, background .2s, box-shadow .2s;
+      text-align: center;
+    }
+
+    #upload-zone:hover,
+    #upload-zone.drag-over {
+      border-color: var(--amber);
+      box-shadow: 0 0 0 1px var(--amberg), inset 0 0 40px rgba(232,151,30,.06);
+    }
+
+    #upload-zone.uploading {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 1px rgba(28,212,192,.4);
+    }
+
+    .upload-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      border: 1.5px solid var(--bdh);
+      background: var(--bg2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color .2s;
+    }
+
+    #upload-zone:hover .upload-icon,
+    #upload-zone.drag-over .upload-icon {
+      border-color: var(--amber);
+    }
+
+    .upload-icon svg { width: 24px; height: 24px; stroke: var(--amber); fill: none; }
+
+    .upload-label {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      color: var(--t1);
+    }
+
+    .upload-hint {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--t3);
+      letter-spacing: .06em;
+    }
+
+    #upload-status {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--teal);
+      height: 16px;
+    }
+
+    #file-input { display: none; }
+
+    /* ── section header ──────────────────────────────────────────────────── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-family: var(--mono);
+      font-weight: 500;
+      letter-spacing: .14em;
+      color: var(--t2);
+      text-transform: uppercase;
+    }
+
+    .section-count {
+      font-family: var(--mono);
+      font-size: 10px;
+      background: var(--bg2);
+      border: 1px solid var(--bd);
+      border-radius: 100px;
+      padding: 2px 8px;
+      color: var(--t3);
+    }
+
+    .section-line {
+      flex: 1;
+      height: 1px;
+      background: var(--bd);
+    }
+
+    /* ── jobs grid ───────────────────────────────────────────────────────── */
+    #jobs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+      gap: 14px;
+    }
+
+    /* ── job card ────────────────────────────────────────────────────────── */
+    .job-card {
+      background: var(--bg2);
+      border: 1px solid var(--bd);
+      border-radius: var(--r-lg);
+      padding: 18px 20px;
+      cursor: pointer;
+      transition: border-color .18s, transform .15s, box-shadow .15s;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .job-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 3px;
+      height: 100%;
+      border-radius: 99px 0 0 99px;
+      background: var(--bd);
+      transition: background .18s;
+    }
+
+    .job-card:hover { 
+      border-color: var(--bdh);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,.4);
+    }
+    .job-card:hover::before { background: var(--amber); }
+
+    .job-card.status-running::before { background: var(--amber); }
+    .job-card.status-completed::before { background: var(--teal); }
+    .job-card.status-failed::before { background: var(--red); }
+
+    /* ── card header row ─────────────────────────────────────────────────── */
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: .1em;
+      padding: 4px 9px;
+      border-radius: 100px;
+      border: 1px solid currentColor;
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .badge.pending  { color: var(--t3); border-color: var(--bd); }
+    .badge.running  { color: var(--amber); }
+    .badge.completed { color: var(--teal); }
+    .badge.failed   { color: var(--red); }
+
+    .badge.running .badge-dot {
+      animation: pulse-dot 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%,100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
+      50% { opacity: .7; box-shadow: 0 0 0 3px transparent; }
+    }
+
+    .card-time {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--t3);
+    }
+
+    /* ── filename ────────────────────────────────────────────────────────── */
+    .card-filename {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--t1);
+      letter-spacing: .01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── progress bar ────────────────────────────────────────────────────── */
+    .prog-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .prog-track {
+      flex: 1;
+      height: 3px;
+      background: var(--bg3);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .prog-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: var(--amber);
+      transition: width .4s ease;
+    }
+
+    .status-running .prog-fill { background: var(--amber); }
+    .status-completed .prog-fill { background: var(--teal); }
+    .status-failed .prog-fill { background: var(--red); }
+
+    .prog-text {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--t3);
+      white-space: nowrap;
+    }
+
+    /* ── error snippet ───────────────────────────────────────────────────── */
+    .card-error {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--red);
+      background: var(--redd);
+      border: 1px solid rgba(244,63,94,.2);
+      border-radius: var(--r);
+      padding: 6px 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── card footer ─────────────────────────────────────────────────────── */
+    .card-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 2px;
+    }
+
+    .btn-view {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .1em;
+      color: var(--amber);
+      background: none;
+      border: 1px solid var(--amberg);
+      border-radius: var(--r);
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+
+    .btn-view:hover {
+      background: var(--amberd);
+      border-color: var(--amber);
+    }
+
+    .btn-delete {
+      font-size: 13px;
+      color: var(--t3);
+      background: none;
+      border: 1px solid var(--bd);
+      border-radius: var(--r);
+      width: 30px;
+      height: 30px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color .15s, border-color .15s, background .15s;
+    }
+
+    .btn-delete:hover {
+      color: var(--red);
+      border-color: rgba(244,63,94,.4);
+      background: var(--redd);
+    }
+
+    /* ── empty state ─────────────────────────────────────────────────────── */
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 60px 20px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--t3);
+      letter-spacing: .06em;
+    }
+
+    /* ── card enter animation (only for brand-new cards) ──────────────── */
+    @keyframes card-in {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .job-card.card-new { animation: card-in .25s ease both; }
+
+    /* ── scrollbar ───────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--bd); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--bdh); }
+
+    /* ── band score badge on card ──────────────────────────────────────── */
+    .band-score-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .band-score-num {
+      font-size: 30px;
+      font-weight: 800;
+      color: var(--amber);
+      line-height: 1;
+      text-shadow: 0 0 20px rgba(232,151,30,.25);
+    }
+    .band-score-lbl {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: .12em;
+      color: var(--t3);
+      text-transform: uppercase;
+      align-self: flex-end;
+      padding-bottom: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── top bar ──────────────────────────────────────────────────────────── -->
+  <header id="topbar">
+    <a class="logo" href="/">
+      <div>
+        <div>AUDIO ASSESSMENT</div>
+        <div class="logo-sub">CONTROL PANEL</div>
+      </div>
+    </a>
+    <div class="sys-status">
+      <div class="sys-dot"></div>
+      <span id="sys-label">ONLINE</span>
+    </div>
+  </header>
+
+  <!-- ── main scroll area ─────────────────────────────────────────────────── -->
+  <div id="main">
+
+    <!-- Upload zone -->
+    <section id="upload-section">
+      <div id="upload-zone" role="button" aria-label="Upload audio file">
+        <div class="upload-icon">
+          <svg viewBox="0 0 24 24" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 16V4m0 0-4 4m4-4 4 4"/>
+            <path d="M4 20h16"/>
+          </svg>
+        </div>
+        <div class="upload-label">DROP AUDIO FILE</div>
+        <div class="upload-hint">WAV · MP3 · M4A · OGG · FLAC · max 25 MB</div>
+        <div id="upload-status"></div>
+        <input type="file" id="file-input" accept="audio/*" />
+      </div>
+    </section>
+
+    <!-- Jobs section -->
+    <section id="jobs-section">
+      <div class="section-header">
+        <span class="section-title">Assessment Jobs</span>
+        <span class="section-count" id="jobs-count">0</span>
+        <div class="section-line"></div>
+      </div>
+      <div id="jobs-grid"></div>
+    </section>
+
+  </div>
+
+  <script>
+    // ── State ────────────────────────────────────────────────────────────────
+    const TOTAL_STAGES = 7;
+    let _jobs = [];
+    let _pollTimer = null;
+    let _liveTimers = {};  // job_id -> intervalId for running elapsed display
+    let _knownIds = new Set(); // track cards already rendered (no re-animation)
+
+    // ── Polling ──────────────────────────────────────────────────────────────
+    async function loadJobs() {
+      try {
+        const res = await fetch('/api/jobs');
+        if (!res.ok) throw new Error(res.statusText);
+        _jobs = await res.json();
+        renderJobs();
+        document.getElementById('sys-label').textContent = 'ONLINE';
+      } catch (e) {
+        document.getElementById('sys-label').textContent = 'ERROR';
+      }
+    }
+
+    function startPolling() {
+      loadJobs();
+      _pollTimer = setInterval(loadJobs, 3000);
+    }
+
+    // ── Render ───────────────────────────────────────────────────────────────
+    function renderJobs() {
+      const grid = document.getElementById('jobs-grid');
+      document.getElementById('jobs-count').textContent = _jobs.length;
+
+      if (_jobs.length === 0) {
+        Object.values(_liveTimers).forEach(clearInterval);
+        _liveTimers = {};
+        _knownIds.clear();
+        grid.innerHTML = '<div class="empty-state">No jobs yet \u2014 upload an audio file above to begin.</div>';
+        return;
+      }
+
+      // Remove empty-state placeholder when jobs exist
+      const emptyEl = grid.querySelector('.empty-state');
+      if (emptyEl) emptyEl.remove();
+
+      const newIdSet = new Set(_jobs.map(j => j.id));
+
+      // Remove cards & timers for deleted jobs
+      grid.querySelectorAll('.job-card[data-id]').forEach(el => {
+        if (!newIdSet.has(el.dataset.id)) {
+          if (_liveTimers[el.dataset.id]) {
+            clearInterval(_liveTimers[el.dataset.id]);
+            delete _liveTimers[el.dataset.id];
+          }
+          el.remove();
+        }
+      });
+
+      // Stop timers for jobs that are no longer running
+      for (const id of Object.keys(_liveTimers)) {
+        const job = _jobs.find(j => j.id === id);
+        if (!job || job.status !== 'running') {
+          clearInterval(_liveTimers[id]);
+          delete _liveTimers[id];
+        }
+      }
+
+      // Build new cards or update existing ones in-place
+      _jobs.forEach((job) => {
+        const isNew = !_knownIds.has(job.id);
+        const existing = grid.querySelector(`.job-card[data-id="${job.id}"]`);
+
+        if (existing) {
+          updateCardInPlace(existing, job);
+        } else {
+          const card = buildCard(job, isNew);
+          grid.appendChild(card);
+        }
+      });
+
+      // Reorder DOM children to match _jobs array order (newest first)
+      _jobs.forEach((job, i) => {
+        const card = grid.querySelector(`.job-card[data-id="${job.id}"]`);
+        if (card && card !== grid.children[i]) {
+          grid.insertBefore(card, grid.children[i]);
+        }
+      });
+
+      _knownIds = newIdSet;
+    }
+
+    // ── In-place card update (avoids DOM rebuild & timer flicker) ────────────
+    function updateCardInPlace(card, job) {
+      // Update status class (drop card-new — animation is one-shot)
+      card.className = `job-card status-${job.status}`;
+
+      // Badge
+      const badge = card.querySelector('.badge');
+      if (badge) {
+        const statusMap = { pending: 'PENDING', running: 'RUNNING', completed: 'DONE', failed: 'FAILED' };
+        badge.className = `badge ${job.status}`;
+        badge.innerHTML = `<span class="badge-dot"></span> ${statusMap[job.status] || job.status.toUpperCase()}`;
+      }
+
+      // Relative time
+      const timeEl = card.querySelector('.card-time');
+      if (timeEl) timeEl.textContent = `${relTime(job.created_at)} \u00b7 ${job.id.substring(0, 8)}`;
+
+      // Progress — only touch if NOT running (running is driven by live timer)
+      if (job.status !== 'running') {
+        const progress = calcProgress(job);
+        let label = progress.label;
+        if (job.status === 'completed' && job.elapsed_seconds != null) {
+          label = `${fmtSec(job.elapsed_seconds)} \u00b7 done`;
+        }
+        const progText = card.querySelector('.prog-text');
+        const progFill = card.querySelector('.prog-fill');
+        if (progText) progText.textContent = label;
+        if (progFill) progFill.style.width = progress.pct + '%';
+      } else if (!_liveTimers[job.id]) {
+        // Newly running — kick off live timer
+        startLiveTimer(card, job);
+      } else {
+        // Timer already active — just refresh event count for next tick
+        card.dataset.eventCount = job.event_count || 0;
+      }
+
+      // Band score
+      let bandRow = card.querySelector('.band-score-row');
+      if (job.band_score != null) {
+        if (!bandRow) {
+          bandRow = document.createElement('div');
+          bandRow.className = 'band-score-row';
+          const fn = card.querySelector('.card-filename');
+          if (fn && fn.nextSibling) fn.parentNode.insertBefore(bandRow, fn.nextSibling);
+        }
+        bandRow.innerHTML = `<span class="band-score-num">${job.band_score.toFixed(1)}</span><span class="band-score-lbl">BAND</span>`;
+      } else if (bandRow) {
+        bandRow.remove();
+      }
+
+      // Error
+      let errEl = card.querySelector('.card-error');
+      if (job.error) {
+        if (!errEl) {
+          errEl = document.createElement('div');
+          errEl.className = 'card-error';
+          const prog = card.querySelector('.prog-row');
+          if (prog && prog.nextSibling) prog.parentNode.insertBefore(errEl, prog.nextSibling);
+        }
+        errEl.textContent = job.error.substring(0, 90);
+      } else if (errEl) {
+        errEl.remove();
+      }
+    }
+
+    // ── Live elapsed timer for running cards ─────────────────────────────────
+    function startLiveTimer(card, job) {
+      const created = new Date(job.created_at);
+      card.dataset.eventCount = job.event_count || 0;
+
+      const tick = () => {
+        const s = Math.floor((Date.now() - created) / 1000);
+        const evts = parseInt(card.dataset.eventCount || '0', 10);
+        const done = Math.min(Math.floor(evts / 2), TOTAL_STAGES - 1);
+        const pct  = done / TOTAL_STAGES * 100;
+        const ptEl = card.querySelector('.prog-text');
+        const fill = card.querySelector('.prog-fill');
+        if (ptEl) ptEl.textContent = `${fmtSec(s)} \u00b7 ${done}/${TOTAL_STAGES}`;
+        if (fill) fill.style.width = pct + '%';
+      };
+
+      tick();                                       // immediate first update
+      _liveTimers[job.id] = setInterval(tick, 500);
+    }
+
+    // ── Card builder (new cards only) ────────────────────────────────────────
+    function buildCard(job, isNew = true) {
+      const card = document.createElement('article');
+      card.className = `job-card status-${job.status}${isNew ? ' card-new' : ''}`;
+      card.dataset.id = job.id;
+      card.dataset.eventCount = job.event_count || 0;
+
+      const statusMap = { pending: 'PENDING', running: 'RUNNING', completed: 'DONE', failed: 'FAILED' };
+      const statusLabel = statusMap[job.status] || job.status.toUpperCase();
+      const progress = calcProgress(job);
+      const timeAgo = relTime(job.created_at);
+      const short = job.id.substring(0, 8);
+
+      // For running jobs, include elapsed in the initial render (no blank gap)
+      let progLabel = progress.label;
+      if (job.status === 'running') {
+        const s = Math.floor((Date.now() - new Date(job.created_at)) / 1000);
+        const done = Math.min(Math.floor((job.event_count || 0) / 2), TOTAL_STAGES - 1);
+        progLabel = `${fmtSec(s)} \u00b7 ${done}/${TOTAL_STAGES}`;
+      } else if (job.status === 'completed' && job.elapsed_seconds != null) {
+        progLabel = `${fmtSec(job.elapsed_seconds)} \u00b7 done`;
+      }
+
+      const bandBadge = job.band_score != null
+        ? `<div class="band-score-row"><span class="band-score-num">${job.band_score.toFixed(1)}</span><span class="band-score-lbl">BAND</span></div>`
+        : '';
+
+      card.innerHTML = `
+        <div class="card-head">
+          <span class="badge ${job.status}">
+            <span class="badge-dot"></span>
+            ${statusLabel}
+          </span>
+          <span class="card-time">${timeAgo} \u00b7 ${short}</span>
+        </div>
+        <div class="card-filename" title="${esc(job.filename)}">${esc(job.filename)}</div>
+        ${bandBadge}
+        <div class="prog-row">
+          <div class="prog-track">
+            <div class="prog-fill" style="width:${progress.pct}%"></div>
+          </div>
+          <span class="prog-text">${progLabel}</span>
+        </div>
+        ${job.error ? `<div class="card-error">${esc(job.error.substring(0, 90))}</div>` : ''}
+        <div class="card-foot">
+          <button class="btn-view" data-id="${job.id}">VIEW DETAILS \u2192</button>
+          <button class="btn-delete" data-id="${job.id}" title="Delete job">\u2715</button>
+        </div>
+      `;
+
+      card.querySelector('.btn-view').addEventListener('click', (e) => {
+        e.stopPropagation();
+        nav(job.id);
+      });
+      card.querySelector('.btn-delete').addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteJob(job.id);
+      });
+      card.addEventListener('click', () => nav(job.id));
+
+      // Start live timer for running jobs
+      if (job.status === 'running') {
+        startLiveTimer(card, job);
+      }
+
+      return card;
+    }
+
+    function calcProgress(job) {
+      if (job.status === 'completed') return { pct: 100, label: `${TOTAL_STAGES}/${TOTAL_STAGES} done` };
+      if (job.status === 'failed')    return { pct: 0,   label: 'failed' };
+      if (job.status === 'pending')   return { pct: 0,   label: `0/${TOTAL_STAGES}` };
+      const completed = Math.min(Math.floor((job.event_count || 0) / 2), TOTAL_STAGES);
+      return { pct: completed / TOTAL_STAGES * 100, label: `${completed}/${TOTAL_STAGES}` };
+    }
+
+    // ── Upload ───────────────────────────────────────────────────────────────
+    function initUpload() {
+      const zone = document.getElementById('upload-zone');
+      const input = document.getElementById('file-input');
+      const status = document.getElementById('upload-status');
+
+      zone.addEventListener('click', (e) => {
+        if (e.target === input) return;
+        input.click();
+      });
+
+      zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.classList.add('drag-over');
+      });
+      zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file) upload(file);
+      });
+
+      input.addEventListener('change', () => {
+        if (input.files[0]) upload(input.files[0]);
+        input.value = '';
+      });
+    }
+
+    async function upload(file) {
+      const zone = document.getElementById('upload-zone');
+      const status = document.getElementById('upload-status');
+
+      zone.classList.add('uploading');
+      status.textContent = `Uploading ${file.name}…`;
+
+      const fd = new FormData();
+      fd.append('audio', file);
+
+      try {
+        const res = await fetch('/api/jobs', { method: 'POST', body: fd });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(err.detail || res.statusText);
+        }
+        const data = await res.json();
+        status.textContent = `Job created · ${data.job_id.substring(0, 8)}…`;
+        await loadJobs();
+        setTimeout(() => nav(data.job_id), 600);
+      } catch (e) {
+        status.textContent = `Error: ${e.message}`;
+        zone.classList.remove('uploading');
+      }
+    }
+
+    async function deleteJob(id) {
+      if (!confirm('Delete this assessment job?')) return;
+      await fetch(`/api/jobs/${id}`, { method: 'DELETE' });
+      await loadJobs();
+    }
+
+    // ── Nav ──────────────────────────────────────────────────────────────────
+    function nav(id) { window.location.href = `/job/${id}`; }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function relTime(iso) {
+      const d = Math.floor((Date.now() - new Date(iso)) / 1000);
+      if (d < 60) return `${d}s ago`;
+      if (d < 3600) return `${Math.floor(d / 60)}m ago`;
+      return `${Math.floor(d / 3600)}h ago`;
+    }
+
+    function fmtSec(s) {
+      const m = Math.floor(s / 60);
+      const ss = String(s % 60).padStart(2, '0');
+      return m > 0 ? `${m}m${ss}s` : `${s}s`;
+    }
+
+    function esc(str) {
+      const d = document.createElement('div');
+      d.appendChild(document.createTextNode(String(str)));
+      return d.innerHTML;
+    }
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    initUpload();
+    startPolling();
+  </script>
+</body>
+</html>

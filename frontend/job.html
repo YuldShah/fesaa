@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AA · Job Detail</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+  <style>
+    /* ── reset & tokens ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg0: #05070d;
+      --bg1: #0b0f1a;
+      --bg2: #111826;
+      --bg3: #182030;
+      --bg4: #1d2840;
+      --bd:  #1c2a3e;
+      --bdh: #253750;
+
+      --amber:  #e8971e;
+      --amberd: rgba(232,151,30,.09);
+      --amberg: rgba(232,151,30,.28);
+      --teal:   #1cd4c0;
+      --teald:  rgba(28,212,192,.10);
+      --green:  #22c55e;
+      --greend: rgba(34,197,94,.12);
+      --red:    #f43f5e;
+      --redd:   rgba(244,63,94,.12);
+      --yellow: #f59e0b;
+      --yellowd: rgba(245,158,11,.12);
+
+      --t1: #dde5f4;
+      --t2: #7a90ad;
+      --t3: #3b5070;
+
+      --font: 'Syne', sans-serif;
+      --mono: 'DM Mono', monospace;
+      --r:    8px;
+      --r-lg: 14px;
+    }
+
+    html { height: 100%; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg0);
+      color: var(--t1);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+      opacity: .6;
+    }
+
+    /* ── top bar ─────────────────────────────────────────────────────────── */
+    #topbar {
+      height: 54px;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      border-bottom: 1px solid var(--bd);
+      background: var(--bg1);
+      flex-shrink: 0;
+      z-index: 100;
+    }
+
+    .back-btn {
+      height: 100%;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .08em;
+      color: var(--t3);
+      text-decoration: none;
+      border-right: 1px solid var(--bd);
+      transition: color .15s, background .15s;
+    }
+    .back-btn:hover { color: var(--t2); background: var(--bg2); }
+    .back-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .topbar-meta {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 0 20px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .meta-filename {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--t1);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 220px;
+    }
+
+    .meta-id {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--t3);
+      letter-spacing: .06em;
+      white-space: nowrap;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 20px;
+      border-left: 1px solid var(--bd);
+      height: 100%;
+      flex-shrink: 0;
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .1em;
+      padding: 5px 11px;
+      border-radius: 100px;
+      border: 1px solid currentColor;
+    }
+    .chip-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    .status-chip.pending   { color: var(--t3); border-color: var(--bd); }
+    .status-chip.running   { color: var(--amber); }
+    .status-chip.completed { color: var(--teal); }
+    .status-chip.failed    { color: var(--red); }
+    .status-chip.running .chip-dot {
+      animation: pulse-dot 1s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%,100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
+      50% { opacity: .6; box-shadow: 0 0 0 3px transparent; }
+    }
+
+    .elapsed-chip {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--t2);
+      letter-spacing: .05em;
+    }
+    .elapsed-chip span { color: var(--amber); font-weight: 500; }
+
+    /* ── body layout ─────────────────────────────────────────────────────── */
+    #body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── pipeline panel ──────────────────────────────────────────────────── */
+    #pipeline-panel {
+      width: 360px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--bd);
+      background: var(--bg1);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-label {
+      padding: 16px 20px 10px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .14em;
+      color: var(--t3);
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--bd);
+      flex-shrink: 0;
+    }
+
+    /* ── stage list ──────────────────────────────────────────────────────── */
+    #stage-list {
+      flex: 1;
+      padding: 8px 0;
+    }
+
+    .stage-item {
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 20px;
+      cursor: pointer;
+      transition: background .12s;
+    }
+    .stage-item:hover { background: rgba(255,255,255,.02); }
+    .stage-item.active { background: var(--amberd); }
+    .stage-item.active .stage-name { color: var(--amber); }
+
+    /* Vertical connector line */
+    .stage-item:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 27px;
+      top: 42px;
+      bottom: 0;
+      width: 1px;
+      background: var(--bd);
+    }
+    .stage-item.completed:not(:last-child)::after { background: rgba(28,212,192,.3); }
+
+    /* Stage dot */
+    .stage-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 1px;
+      border: 2px solid var(--bd);
+      background: var(--bg0);
+      position: relative;
+      transition: all .2s;
+    }
+    .stage-item.completed .stage-dot {
+      background: var(--teal);
+      border-color: var(--teal);
+      box-shadow: 0 0 8px rgba(28,212,192,.4);
+    }
+    .stage-item.running .stage-dot {
+      background: var(--amber);
+      border-color: var(--amber);
+      box-shadow: 0 0 10px rgba(232,151,30,.5);
+      animation: stage-pulse 1.2s ease-in-out infinite;
+    }
+    .stage-item.failed .stage-dot {
+      background: var(--red);
+      border-color: var(--red);
+      box-shadow: 0 0 8px rgba(244,63,94,.4);
+    }
+    @keyframes stage-pulse {
+      0%,100% { box-shadow: 0 0 6px rgba(232,151,30,.5); }
+      50% { box-shadow: 0 0 16px rgba(232,151,30,.8); }
+    }
+
+    /* Stage info */
+    .stage-info { flex: 1; min-width: 0; }
+
+    .stage-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--t2);
+      letter-spacing: .03em;
+      transition: color .15s;
+    }
+
+    .stage-desc {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--t3);
+      margin-top: 2px;
+      letter-spacing: .04em;
+    }
+
+    .stage-elapsed {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--t3);
+      white-space: nowrap;
+      align-self: flex-start;
+      padding-top: 2px;
+      transition: color .15s;
+    }
+    .stage-elapsed.live { color: var(--amber); }
+    .stage-elapsed.done { color: var(--teal); }
+    .stage-elapsed.err  { color: var(--red); }
+
+    /* ── detail panel ────────────────────────────────────────────────────── */
+    #detail-panel {
+      flex: 1;
+      background: var(--bg0);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .detail-header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--bd);
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .detail-stage-name {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: .03em;
+      color: var(--t1);
+    }
+
+    .detail-stage-desc {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--t3);
+    }
+
+    .detail-body {
+      flex: 1;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .detail-section { display: flex; flex-direction: column; gap: 8px; }
+
+    .detail-section-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .14em;
+      color: var(--t3);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .detail-section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--bd);
+    }
+
+    /* JSON pre block */
+    .json-block {
+      background: var(--bg1);
+      border: 1px solid var(--bd);
+      border-radius: var(--r);
+      padding: 14px 16px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      line-height: 1.7;
+      overflow: auto;
+      white-space: pre;
+      max-height: 280px;
+      color: var(--t1);
+    }
+
+    /* JSON syntax colours */
+    .jk { color: #7dd3fc; }  /* key */
+    .js { color: #86efac; }  /* string value */
+    .jn { color: #f9a8d4; }  /* number */
+    .jb { color: #fb923c; }  /* bool */
+    .jl { color: #94a3b8; }  /* null */
+
+    .copy-btn {
+      align-self: flex-start;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .1em;
+      color: var(--t3);
+      background: none;
+      border: 1px solid var(--bd);
+      border-radius: var(--r);
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: color .12s, border-color .12s;
+    }
+    .copy-btn:hover { color: var(--t1); border-color: var(--bdh); }
+
+    /* Metrics grid */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+    }
+
+    .metric-card {
+      background: var(--bg2);
+      border: 1px solid var(--bd);
+      border-radius: var(--r);
+      padding: 14px 16px;
+    }
+
+    .metric-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: .12em;
+      color: var(--t3);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .metric-value {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--amber);
+      line-height: 1;
+    }
+
+    .metric-sub {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--t3);
+      margin-top: 4px;
+    }
+
+    /* Placeholder */
+    .detail-placeholder {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--t3);
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: .06em;
+      padding: 40px;
+    }
+
+    .detail-placeholder svg {
+      width: 40px; height: 40px;
+      stroke: var(--t3); fill: none;
+      stroke-width: 1.2; stroke-linecap: round;
+    }
+
+    /* ── audio section ───────────────────────────────────────────────────── */
+    #audio-section {
+      flex-shrink: 0;
+      border-top: 1px solid var(--bd);
+      background: var(--bg1);
+      height: 288px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .audio-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--bd);
+      flex-shrink: 0;
+    }
+
+    .audio-title {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .14em;
+      color: var(--t3);
+      text-transform: uppercase;
+      flex: 1;
+    }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .05em;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--t3);
+    }
+
+    .legend-pip {
+      width: 20px;
+      height: 3px;
+      border-radius: 99px;
+    }
+    .pip-high   { background: var(--green); }
+    .pip-mid    { background: var(--yellow); }
+    .pip-low    { background: var(--red); }
+    .pip-none   { background: var(--t3); }
+
+    /* Player controls */
+    .player-controls {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 20px;
+      flex-shrink: 0;
+    }
+
+    #play-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--amber);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background .15s, transform .1s;
+    }
+    #play-btn:hover { background: #f0a836; transform: scale(1.06); }
+    #play-btn:active { transform: scale(.96); }
+    #play-btn svg { width: 14px; height: 14px; fill: #000; }
+
+    .seek-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    #seek {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: var(--bg3);
+      border-radius: 99px;
+      cursor: pointer;
+      outline: none;
+      position: relative;
+    }
+    #seek::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 13px; height: 13px;
+      border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 0 0 8px var(--amberg);
+      cursor: pointer;
+      transition: transform .1s;
+    }
+    #seek::-webkit-slider-thumb:hover { transform: scale(1.3); }
+    #seek::-moz-range-thumb {
+      width: 13px; height: 13px;
+      border-radius: 50%;
+      background: var(--amber);
+      border: none;
+      cursor: pointer;
+    }
+
+    .seek-times {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--t3);
+    }
+
+    /* ── transcript ──────────────────────────────────────────────────────── */
+    #transcript-wrap {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 10px 20px 14px;
+    }
+
+    #transcript-words {
+      line-height: 2.2;
+      font-size: 14px;
+      color: var(--t1);
+    }
+
+    .word {
+      display: inline-block;
+      padding: 1px 3px;
+      margin: 1px 2px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background .08s, color .08s, box-shadow .08s;
+      position: relative;
+    }
+
+    .word::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0; right: 0;
+      height: 2px;
+      border-radius: 1px;
+    }
+
+    .word.conf-high::after { background: var(--green); }
+    .word.conf-mid::after  { background: var(--yellow); }
+    .word.conf-low::after  { background: var(--red); }
+    .word.conf-none::after { background: var(--t3); opacity: .4; }
+
+    /* Pause marker */
+    .word.pause {
+      color: #a855f7;
+      background: rgba(168,85,247,.1);
+      font-style: italic;
+      padding: 1px 6px;
+      margin: 1px 1px;
+      border-radius: 3px;
+    }
+    .word.pause::after { display: none; }
+    .word.pause:hover { background: rgba(168,85,247,.2); }
+    .word.pause.word-active { color: #fff; background: rgba(168,85,247,.35); }
+
+    /* Short word (excluded from low confidence) */
+    .word.word-short { opacity: 0.75; }
+
+    /* Filler word (uhhh, um, ah, etc.) */
+    .word.filler {
+      color: #f97316;
+      background: rgba(249,115,22,.12);
+      border-radius: 3px;
+      padding: 1px 4px;
+      margin: 1px 1px;
+    }
+    .word.filler::after { display: none; }
+    .word.filler:hover { background: rgba(249,115,22,.25); }
+    .word.filler.word-active { color: #fff; background: rgba(249,115,22,.4); }
+
+    .word.word-active {
+      background: rgba(232,151,30,.22);
+      color: #fff;
+      box-shadow: 0 0 0 1px var(--amberg);
+    }
+    .word:hover {
+      background: rgba(255,255,255,.05);
+    }
+
+    /* Transcript loading placeholder */
+    .transcript-pending {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--t3);
+      letter-spacing: .06em;
+      padding: 20px 0;
+    }
+
+    /* ── hidden audio element ────────────────────────────────────────────── */
+    #audio-el { display: none; }
+
+    /* ── scrollbar ───────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--bd); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--bdh); }
+
+    /* ── responsive collapse ─────────────────────────────────────────────── */
+    @media (max-width: 820px) {
+      #pipeline-panel { width: 260px; }
+    }
+    @media (max-width: 620px) {
+      #body { flex-direction: column; }
+      #pipeline-panel { width: 100%; height: 200px; border-right: none; border-bottom: 1px solid var(--bd); }
+      #audio-section { height: 320px; }
+    }
+
+    /* ── panel tabs ────────────────────────────────────────────────────── */
+    #panel-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--bd);
+      background: var(--bg1);
+      flex-shrink: 0;
+    }
+    .ptab {
+      flex: 1;
+      height: 40px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: .12em;
+      color: var(--t3);
+      cursor: pointer;
+      transition: color .15s, border-color .15s, background .15s;
+      text-transform: uppercase;
+    }
+    .ptab:hover:not(:disabled) { color: var(--t2); background: rgba(255,255,255,.02); }
+    .ptab.is-active { color: var(--amber); border-bottom-color: var(--amber); }
+    .ptab:disabled { opacity: .3; cursor: not-allowed; }
+    .ptab-pane { display: none; flex: 1; flex-direction: column; overflow-y: auto; min-height: 0; }
+    .ptab-pane.is-active { display: flex; }
+
+    /* ── assessment report panel ──────────────────────────────────────────── */
+    #report-content {
+      flex: 1;
+      padding: 22px 24px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    .report-waiting {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--t3);
+      letter-spacing: .06em;
+      margin: auto;
+      text-align: center;
+    }
+    .report-section { display: flex; flex-direction: column; gap: 10px; }
+    .report-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .14em;
+      color: var(--t3);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .report-label::after { content: ''; flex: 1; height: 1px; background: var(--bd); }
+
+    /* Band hero */
+    .band-hero {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      background: linear-gradient(135deg, var(--bg2) 0%, var(--bg3) 100%);
+      border: 1px solid var(--bd);
+      border-radius: var(--r-lg);
+      padding: 22px 26px;
+      position: relative;
+      overflow: hidden;
+    }
+    .band-hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 50% 80% at 12% 50%, rgba(232,151,30,.09) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .band-number {
+      font-size: 66px;
+      font-weight: 800;
+      color: var(--amber);
+      line-height: 1;
+      letter-spacing: -.02em;
+      text-shadow: 0 0 40px rgba(232,151,30,.25);
+      flex-shrink: 0;
+    }
+    .band-info { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+    .band-lbl { font-family: var(--mono); font-size: 10px; letter-spacing: .18em; color: var(--t3); text-transform: uppercase; }
+    .band-title { font-size: 17px; font-weight: 800; color: var(--t1); letter-spacing: .02em; }
+    .band-summary { font-family: var(--mono); font-size: 11px; color: var(--t2); line-height: 1.6; margin-top: 8px; }
+
+    /* 4 score cards */
+    .score-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    @media (max-width: 900px) { .score-row { grid-template-columns: repeat(2, 1fr); } }
+    .score-card {
+      background: var(--bg2);
+      border: 1px solid var(--bd);
+      border-radius: var(--r);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      position: relative;
+      overflow: hidden;
+    }
+    .score-card::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; }
+    .sc-fluency::after { background: #60a5fa; }
+    .sc-lexical::after { background: #a78bfa; }
+    .sc-grammar::after { background: #f472b6; }
+    .sc-pronunc::after { background: var(--teal); }
+    .score-lbl { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; color: var(--t3); text-transform: uppercase; }
+    .score-val { font-size: 26px; font-weight: 800; line-height: 1; }
+    .sc-fluency .score-val { color: #60a5fa; }
+    .sc-lexical .score-val { color: #a78bfa; }
+    .sc-grammar .score-val { color: #f472b6; }
+    .sc-pronunc .score-val { color: var(--teal); }
+    .score-bar-track { height: 3px; background: var(--bg3); border-radius: 99px; overflow: hidden; }
+    .score-bar-fill { height: 100%; border-radius: 99px; transition: width .7s ease; }
+    .sc-fluency .score-bar-fill { background: #60a5fa; }
+    .sc-lexical .score-bar-fill { background: #a78bfa; }
+    .sc-grammar .score-bar-fill { background: #f472b6; }
+    .sc-pronunc .score-bar-fill { background: var(--teal); }
+
+    /* Domain feedback accordion */
+    .acc-item { background: var(--bg1); border: 1px solid var(--bd); border-radius: var(--r); overflow: hidden; }
+    .acc-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 15px;
+      cursor: pointer;
+      user-select: none;
+      transition: background .12s;
+    }
+    .acc-head:hover { background: var(--bg2); }
+    .acc-color-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .acc-head-name { flex: 1; font-size: 12px; font-weight: 700; color: var(--t2); letter-spacing: .03em; }
+    .acc-head-score { font-family: var(--mono); font-size: 13px; color: var(--t1); font-weight: 500; margin-right: 4px; }
+    .acc-chevron { font-size: 10px; color: var(--t3); transition: transform .2s; }
+    .acc-item.open .acc-chevron { transform: rotate(180deg); }
+    .acc-body { display: none; padding: 0 15px 16px; flex-direction: column; gap: 12px; }
+    .acc-item.open .acc-body { display: flex; }
+    .acc-sub { display: flex; flex-direction: column; gap: 4px; }
+    .acc-sub-lbl { font-family: var(--mono); font-size: 9px; letter-spacing: .14em; color: var(--t3); text-transform: uppercase; }
+    .acc-sub-text { font-size: 12px; line-height: 1.6; color: var(--t2); }
+    .acc-evidence {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: var(--t3);
+      font-style: italic;
+      background: var(--bg2);
+      border-left: 2px solid var(--bdh);
+      padding: 5px 10px;
+      border-radius: 0 4px 4px 0;
+      line-height: 1.5;
+    }
+    .acc-drill {
+      background: var(--amberd);
+      border: 1px solid var(--amberg);
+      border-radius: var(--r);
+      padding: 9px 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--amber);
+      line-height: 1.5;
+    }
+    .acc-rubric { font-family: var(--mono); font-size: 10px; color: var(--t3); line-height: 1.6; }
+
+    /* Sample rewrite */
+    .rewrite-block {
+      background: var(--bg1);
+      border: 1px solid var(--bd);
+      border-radius: var(--r);
+      padding: 14px 16px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--t2);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── top bar ────────────────────────────────────────────────────────── -->
+  <header id="topbar">
+    <a class="back-btn" href="/">
+      <svg viewBox="0 0 24 24"><path d="M19 12H5M5 12l7-7M5 12l7 7"/></svg>
+      JOBS
+    </a>
+    <div class="topbar-meta">
+      <div class="meta-filename" id="meta-filename">—</div>
+      <div class="meta-id" id="meta-id"></div>
+    </div>
+    <div class="topbar-right">
+      <div class="status-chip pending" id="status-chip">
+        <div class="chip-dot"></div>
+        <span id="status-label">PENDING</span>
+      </div>
+      <div class="elapsed-chip">
+        <span id="job-elapsed">0s</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── body ──────────────────────────────────────────────────────────── -->
+  <div id="body">
+
+    <!-- Pipeline panel -->
+    <aside id="pipeline-panel">
+      <div class="panel-label">Pipeline Stages</div>
+      <div id="stage-list">
+        <!-- Populated by JS -->
+      </div>
+    </aside>
+
+    <!-- Detail panel -->
+    <section id="detail-panel">
+      <div id="panel-tabs">
+        <button class="ptab is-active" id="ptab-detail">STAGE DETAIL</button>
+        <button class="ptab" id="ptab-report" disabled>ASSESSMENT REPORT</button>
+      </div>
+
+      <!-- Stage detail pane -->
+      <div class="ptab-pane is-active" id="pane-detail">
+        <div class="detail-placeholder" id="detail-placeholder">
+          <svg viewBox="0 0 24 24" style="stroke-linejoin:round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <path d="M3 9h18M9 21V9"/>
+          </svg>
+          Select a pipeline stage to view its input &amp; output
+        </div>
+        <div id="detail-content" style="display:none; flex:1; flex-direction:column; padding:0;">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Assessment report pane -->
+      <div class="ptab-pane" id="pane-report">
+        <div id="report-content">
+          <div class="report-waiting">Report will appear here once the job completes.</div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ── audio section ─────────────────────────────────────────────────── -->
+  <section id="audio-section">
+    <div class="audio-header">
+      <span class="audio-title">Playback &amp; Pronunciation</span>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-pip pip-high"></div> HIGH</div>
+        <div class="legend-item"><div class="legend-pip pip-mid"></div> MED</div>
+        <div class="legend-item"><div class="legend-pip pip-low"></div> LOW</div>
+        <div class="legend-item"><div class="legend-pip pip-none"></div> UNSCORED</div>
+        <div class="legend-item"><div class="legend-pip" style="background:#a855f7;height:2px;"></div> PAUSE</div>
+        <div class="legend-item"><div class="legend-pip" style="background:#f97316;height:3px;"></div> FILLER</div>
+      </div>
+    </div>
+
+    <div class="player-controls">
+      <button id="play-btn" title="Play / Pause">
+        <svg id="play-icon" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+      </button>
+      <div class="seek-wrap">
+        <input type="range" id="seek" min="0" max="1000" value="0" step="1" />
+        <div class="seek-times">
+          <span id="time-cur">0:00</span>
+          <span id="time-dur">0:00</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="transcript-wrap">
+      <div id="transcript-words">
+        <span class="transcript-pending">Audio transcript will appear here once the job completes.</span>
+      </div>
+    </div>
+
+    <audio id="audio-el" preload="none"></audio>
+  </section>
+
+  <script>
+    // ── Pipeline stage definitions ───────────────────────────────────────────
+    const STAGES = [
+      { id: 'preprocess_audio',    label: 'Audio Preprocess',   desc: 'ffmpeg format conversion' },
+      { id: 'transcribe_asr',      label: 'ASR Transcription',  desc: 'WhisperX word-level alignment' },
+      { id: 'fluency_metrics',     label: 'Fluency Analysis',   desc: 'WPM · pauses · speech ratio' },
+      { id: 'lexical_metrics',     label: 'Lexical Analysis',   desc: 'Type-token ratio · vocabulary' },
+      { id: 'pronunciation_metrics', label: 'Pronunciation',    desc: 'Confidence-based phoneme scoring' },
+      { id: 'llm_evaluate',        label: 'AI Evaluation',      desc: 'Gemini holistic assessment' },
+      { id: 'save_report',         label: 'Save Report',        desc: 'Persist assessment to disk' },
+    ];
+
+    // ── State ────────────────────────────────────────────────────────────────
+    const jobId = window.location.pathname.split('/').filter(Boolean).pop();
+    let jobData = null;
+    let selectedStage = null;
+    let jobStartTime = null;
+    let jobElapsedInterval = null;
+
+    // Per-stage state: { status, inputData, outputData, elapsed_ms, startedAt, liveTimer }
+    const stageState = {};
+    STAGES.forEach(s => {
+      stageState[s.id] = {
+        status: 'pending',
+        inputData: null, outputData: null,
+        elapsed_ms: null, startedAt: null, liveTimer: null,
+      };
+    });
+
+    // ── DOM refs ─────────────────────────────────────────────────────────────
+    const statusChip    = document.getElementById('status-chip');
+    const statusLabel   = document.getElementById('status-label');
+    const jobElapsed    = document.getElementById('job-elapsed');
+    const metaFilename  = document.getElementById('meta-filename');
+    const metaId        = document.getElementById('meta-id');
+    const stageList     = document.getElementById('stage-list');
+    const detailContent = document.getElementById('detail-content');
+    const detailPlaceholder = document.getElementById('detail-placeholder');
+    const audioEl       = document.getElementById('audio-el');
+    const playBtn       = document.getElementById('play-btn');
+    const playIcon      = document.getElementById('play-icon');
+    const seekBar       = document.getElementById('seek');
+    const timeCur       = document.getElementById('time-cur');
+    const timeDur       = document.getElementById('time-dur');
+    const txWords       = document.getElementById('transcript-words');
+    const ptabDetail    = document.getElementById('ptab-detail');
+    const ptabReport    = document.getElementById('ptab-report');
+    const paneDetail    = document.getElementById('pane-detail');
+    const paneReport    = document.getElementById('pane-report');
+    const reportContent = document.getElementById('report-content');
+
+    // ── Panel tab switching ──────────────────────────────────────────────────
+    function switchTab(pane) {
+      const toDetail = (pane === 'detail');
+      ptabDetail.classList.toggle('is-active', toDetail);
+      ptabReport.classList.toggle('is-active', !toDetail);
+      paneDetail.classList.toggle('is-active', toDetail);
+      paneReport.classList.toggle('is-active', !toDetail);
+    }
+    ptabDetail.addEventListener('click', () => switchTab('detail'));
+    ptabReport.addEventListener('click', () => switchTab('report'));
+
+    // ── Build stage list DOM ─────────────────────────────────────────────────
+    function buildStageList() {
+      stageList.innerHTML = '';
+      STAGES.forEach(s => {
+        const item = document.createElement('div');
+        item.className = 'stage-item';
+        item.dataset.stage = s.id;
+        item.innerHTML = `
+          <div class="stage-dot"></div>
+          <div class="stage-info">
+            <div class="stage-name">${s.label}</div>
+            <div class="stage-desc">${s.desc}</div>
+          </div>
+          <div class="stage-elapsed" data-elapsed="${s.id}">—</div>
+        `;
+        item.addEventListener('click', () => selectStage(s.id));
+        stageList.appendChild(item);
+      });
+    }
+
+    // ── Stage UI update ──────────────────────────────────────────────────────
+    function updateStageUI(stageId) {
+      const item = stageList.querySelector(`[data-stage="${stageId}"]`);
+      if (!item) return;
+      const state = stageState[stageId];
+
+      item.className = `stage-item ${state.status}`;
+      if (selectedStage === stageId) item.classList.add('active');
+
+      const el = item.querySelector(`[data-elapsed="${stageId}"]`);
+      if (!el) return;
+
+      if (state.status === 'completed' && state.elapsed_ms != null) {
+        el.textContent = fmtMs(state.elapsed_ms);
+        el.className = 'stage-elapsed done';
+      } else if (state.status === 'failed') {
+        el.textContent = 'FAILED';
+        el.className = 'stage-elapsed err';
+      } else if (state.status === 'running') {
+        el.textContent = '0s';
+        el.className = 'stage-elapsed live';
+      } else {
+        el.textContent = '—';
+        el.className = 'stage-elapsed';
+      }
+    }
+
+    function updateStageLiveTimer(stageId) {
+      const state = stageState[stageId];
+      if (!state || !state.startedAt) return;
+      const ms = Date.now() - state.startedAt;
+      const el = stageList.querySelector(`[data-elapsed="${stageId}"]`);
+      if (el) el.textContent = fmtMs(ms);
+    }
+
+    // ── Event handling ───────────────────────────────────────────────────────
+    function handleEvent(ev) {
+      if (ev.stage === 'job') { handleJobEvent(ev); return; }
+
+      const state = stageState[ev.stage];
+      if (!state) return;
+
+      if (ev.status === 'started') {
+        state.status    = 'running';
+        state.inputData = ev.input;
+        state.startedAt = Date.now();
+        clearInterval(state.liveTimer);
+        state.liveTimer = setInterval(() => updateStageLiveTimer(ev.stage), 100);
+
+      } else if (ev.status === 'completed') {
+        state.status     = 'completed';
+        state.outputData = ev.output;
+        state.elapsed_ms = ev.elapsed_ms;
+        clearInterval(state.liveTimer);
+        state.liveTimer  = null;
+
+      } else if (ev.status === 'failed') {
+        state.status     = 'failed';
+        state.outputData = ev.output;
+        clearInterval(state.liveTimer);
+        state.liveTimer  = null;
+      }
+
+      updateStageUI(ev.stage);
+      if (selectedStage === ev.stage) renderDetailPanel(ev.stage);
+    }
+
+    function handleJobEvent(ev) {
+      if (ev.status === 'started') {
+        jobStartTime = new Date(ev.timestamp);
+        clearInterval(jobElapsedInterval);
+        jobElapsedInterval = setInterval(updateJobElapsed, 200);
+      }
+
+      if (ev.status === 'completed' || ev.status === 'failed') {
+        clearInterval(jobElapsedInterval);
+        setChipStatus(ev.status);
+
+        if (ev.status === 'completed') {
+          fetch(`/api/jobs/${jobId}`)
+            .then(r => r.json())
+            .then(data => {
+              jobData = data;
+              if (data.result) onJobComplete(data.result);
+            });
+        }
+      }
+
+      setChipStatus(ev.status === 'started' ? 'running' : ev.status);
+    }
+
+    function setChipStatus(status) {
+      statusChip.className = `status-chip ${status}`;
+      const labels = { pending: 'PENDING', running: 'RUNNING', completed: 'DONE', failed: 'FAILED' };
+      statusLabel.textContent = labels[status] || status.toUpperCase();
+    }
+
+    function updateJobElapsed() {
+      if (!jobStartTime) return;
+      const ms = Date.now() - jobStartTime;
+      jobElapsed.textContent = fmtMs(ms);
+    }
+
+    // ── Stage detail panel ───────────────────────────────────────────────────
+    function selectStage(stageId) {
+      selectedStage = stageId;
+
+      // Switch to detail pane and mark stage active
+      switchTab('detail');
+      stageList.querySelectorAll('.stage-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.stage === stageId);
+      });
+
+      renderDetailPanel(stageId);
+    }
+
+    function renderDetailPanel(stageId) {
+      const stage = STAGES.find(s => s.id === stageId);
+      const state = stageState[stageId];
+
+      detailPlaceholder.style.display = 'none';
+      detailContent.style.display = 'flex';
+      detailContent.innerHTML = '';
+
+      // Header
+      const hdr = document.createElement('div');
+      hdr.className = 'detail-header';
+      hdr.innerHTML = `
+        <div class="detail-stage-name">${stage.label}</div>
+        <div class="detail-stage-desc">${stage.desc}</div>
+      `;
+      detailContent.appendChild(hdr);
+
+      const body = document.createElement('div');
+      body.className = 'detail-body';
+      detailContent.appendChild(body);
+
+      // Status / elapsed
+      if (state.elapsed_ms != null || state.status !== 'pending') {
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'detail-section';
+        let stateLine = '';
+        if (state.status === 'completed')
+          stateLine = `<span style="color:var(--teal)">COMPLETED</span> in ${fmtMs(state.elapsed_ms)}`;
+        else if (state.status === 'running')
+          stateLine = `<span style="color:var(--amber)">RUNNING</span>`;
+        else if (state.status === 'failed')
+          stateLine = `<span style="color:var(--red)">FAILED</span>`;
+        else
+          stateLine = `<span style="color:var(--t3)">PENDING</span>`;
+
+        metaDiv.innerHTML = `<div style="font-family:var(--mono);font-size:12px;">${stateLine}</div>`;
+        body.appendChild(metaDiv);
+      }
+
+      // Metrics grid for specific stages
+      if (state.status === 'completed' && state.outputData) {
+        if (stageId === 'transcribe_asr' || stageId === 'fluency_metrics' ||
+            stageId === 'lexical_metrics' || stageId === 'pronunciation_metrics') {
+          body.appendChild(buildMetricCards(stageId, state.outputData));
+        }
+      }
+
+      // Input
+      if (state.inputData && Object.keys(state.inputData).length > 0) {
+        body.appendChild(buildJsonSection('INPUT', state.inputData));
+      }
+
+      // Output
+      if (state.outputData) {
+        body.appendChild(buildJsonSection('OUTPUT', state.outputData));
+      }
+    }
+
+    function buildJsonSection(label, data) {
+      const sec = document.createElement('div');
+      sec.className = 'detail-section';
+
+      const lbl = document.createElement('div');
+      lbl.className = 'detail-section-label';
+      lbl.textContent = label;
+      sec.appendChild(lbl);
+
+      const json = JSON.stringify(data, null, 2);
+      const pre = document.createElement('pre');
+      pre.className = 'json-block';
+      pre.innerHTML = syntaxHighlight(json);
+      sec.appendChild(pre);
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'copy-btn';
+      copyBtn.textContent = 'COPY';
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(json).then(() => {
+          copyBtn.textContent = 'COPIED ✓';
+          setTimeout(() => { copyBtn.textContent = 'COPY'; }, 1500);
+        });
+      });
+      sec.appendChild(copyBtn);
+
+      return sec;
+    }
+
+    function buildMetricCards(stageId, out) {
+      const sec = document.createElement('div');
+      sec.className = 'detail-section';
+
+      const lbl = document.createElement('div');
+      lbl.className = 'detail-section-label';
+      lbl.textContent = 'QUICK METRICS';
+      sec.appendChild(lbl);
+
+      const grid = document.createElement('div');
+      grid.className = 'metrics-grid';
+
+      const cards = [];
+      if (stageId === 'transcribe_asr') {
+        cards.push(['DURATION', fmt2(out.duration_seconds) + 's', out.language || '—']);
+        cards.push(['WORDS', out.word_count, `${out.segment_count} segments`]);
+      }
+      if (stageId === 'fluency_metrics') {
+        cards.push(['WPM', fmt2(out.words_per_minute), 'words/min']);
+        cards.push(['SPEECH', pct(out.speech_ratio), 'of duration']);
+        cards.push(['PAUSES', out.pause_count, 'detected']);
+        cards.push(['LONG', out.long_pause_count ?? '—', '>= 1.2s']);
+        cards.push(['FILLERS', out.filler_count ?? '—', 'detected']);
+      }
+      if (stageId === 'lexical_metrics') {
+        cards.push(['WORDS', out.total_words, 'total spoken']);
+        cards.push(['UNIQUE', out.unique_words, '—']);
+        cards.push(['TTR', fmt3(out.type_token_ratio), 'type-token ratio']);
+      }
+      if (stageId === 'pronunciation_metrics') {
+        cards.push(['SCORED', out.total_scored_words, 'words']);
+        cards.push(['CONTENT', out.content_scored_words ?? out.total_scored_words, 'content words']);
+        cards.push(['LOW CONF', pct(out.low_confidence_ratio), 'of scored']);
+        if (out.raw_low_confidence_ratio != null) {
+          cards.push(['RAW LOW', pct(out.raw_low_confidence_ratio), 'all words']);
+        }
+        cards.push(['ISSUES', out.low_confidence_word_count, 'words']);
+      }
+
+      cards.forEach(([label, value, sub]) => {
+        const card = document.createElement('div');
+        card.className = 'metric-card';
+        card.innerHTML = `
+          <div class="metric-label">${label}</div>
+          <div class="metric-value">${value}</div>
+          <div class="metric-sub">${sub}</div>
+        `;
+        grid.appendChild(card);
+      });
+
+      sec.appendChild(grid);
+      return sec;
+    }
+
+    // ── Assessment report panel ───────────────────────────────────────────────────
+    const DOMAIN_CFG = [
+      { key: 'fluency_coherence',         cls: 'sc-fluency', label: 'Fluency & Coherence',  color: '#60a5fa' },
+      { key: 'lexical_resource',           cls: 'sc-lexical', label: 'Lexical Resource',     color: '#a78bfa' },
+      { key: 'grammatical_range_accuracy', cls: 'sc-grammar', label: 'Grammar & Accuracy',  color: '#f472b6' },
+      { key: 'pronunciation',              cls: 'sc-pronunc', label: 'Pronunciation',        color: '#1cd4c0' },
+    ];
+
+    function bandLevel(b) {
+      if (b >= 9)   return 'Expert User';
+      if (b >= 8)   return 'Very Good User';
+      if (b >= 7)   return 'Good User';
+      if (b >= 6)   return 'Competent User';
+      if (b >= 5)   return 'Modest User';
+      if (b >= 4)   return 'Limited User';
+      if (b >= 3)   return 'Extremely Limited User';
+      return 'Non User';
+    }
+
+    function renderResultsPanel(result) {
+      if (!result) {
+        reportContent.innerHTML = '<div class="report-waiting">No assessment payload was returned for this job.</div>';
+        return;
+      }
+
+      const ev  = result.llm_evaluation || null;
+      const met = result.metrics || {};
+
+      if (!ev) {
+        reportContent.innerHTML = `
+          <div class="report-waiting">
+            Detailed AI report is unavailable for this run.<br/>
+            Open <strong>AI Evaluation</strong> in <strong>STAGE DETAIL</strong> to inspect raw output or error.
+          </div>
+        `;
+        return;
+      }
+
+      const sc  = ev.scores || {};
+      const fb  = ev.domain_feedback || {};
+
+      const vals = DOMAIN_CFG.map(d => sc[d.key]).filter(v => v != null);
+      const avg  = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+      const band = Math.round(avg * 2) / 2;
+
+      reportContent.innerHTML = '';
+
+      // — Band hero —
+      const hero = document.createElement('div');
+      hero.className = 'band-hero';
+      hero.innerHTML = `
+        <div class="band-number">${band.toFixed(1)}</div>
+        <div class="band-info">
+          <div class="band-lbl">IELTS SPEAKING BAND SCORE</div>
+          <div class="band-title">${bandLevel(band)}</div>
+          ${ev.summary ? `<div class="band-summary">${esc(ev.summary)}</div>` : ''}
+        </div>
+      `;
+      reportContent.appendChild(hero);
+
+      // — 4 criterion score cards —
+      const scoreSec = document.createElement('div');
+      scoreSec.className = 'report-section';
+      const scoreLbl = document.createElement('div');
+      scoreLbl.className = 'report-label';
+      scoreLbl.textContent = 'CRITERION SCORES';
+      scoreSec.appendChild(scoreLbl);
+      const scoreRow = document.createElement('div');
+      scoreRow.className = 'score-row';
+      DOMAIN_CFG.forEach(d => {
+        const v = sc[d.key];
+        const p = v != null ? (v / 9 * 100).toFixed(0) : 0;
+        const card = document.createElement('div');
+        card.className = `score-card ${d.cls}`;
+        card.innerHTML = `
+          <div class="score-lbl">${d.label}</div>
+          <div class="score-val">${v != null ? v : '—'}</div>
+          <div class="score-bar-track"><div class="score-bar-fill" style="width:${p}%"></div></div>
+        `;
+        scoreRow.appendChild(card);
+      });
+      scoreSec.appendChild(scoreRow);
+      reportContent.appendChild(scoreSec);
+
+      // — Domain feedback accordion —
+      const fbSec = document.createElement('div');
+      fbSec.className = 'report-section';
+      const fbLbl = document.createElement('div');
+      fbLbl.className = 'report-label';
+      fbLbl.textContent = 'DOMAIN FEEDBACK';
+      fbSec.appendChild(fbLbl);
+      DOMAIN_CFG.forEach(d => {
+        const data = fb[d.key] || {};
+        const item = document.createElement('div');
+        item.className = 'acc-item';
+        item.innerHTML = `
+          <div class="acc-head">
+            <div class="acc-color-dot" style="background:${d.color}"></div>
+            <div class="acc-head-name">${d.label}</div>
+            <div class="acc-head-score">${sc[d.key] != null ? sc[d.key] : '—'}</div>
+            <div class="acc-chevron">▾</div>
+          </div>
+          <div class="acc-body">
+            ${data.strength ? `<div class="acc-sub"><div class="acc-sub-lbl">STRENGTH</div><div class="acc-sub-text">${esc(data.strength)}</div>${data.strength_evidence ? `<div class="acc-evidence">“${esc(data.strength_evidence)}”</div>` : ''}</div>` : ''}
+            ${data.error    ? `<div class="acc-sub"><div class="acc-sub-lbl">AREA TO IMPROVE</div><div class="acc-sub-text">${esc(data.error)}</div>${data.error_evidence ? `<div class="acc-evidence">“${esc(data.error_evidence)}”</div>` : ''}</div>` : ''}
+            ${data.drill    ? `<div class="acc-sub"><div class="acc-sub-lbl">DRILL</div><div class="acc-drill">${esc(data.drill)}</div></div>` : ''}
+            ${data.rubric_justification ? `<div class="acc-sub"><div class="acc-sub-lbl">RUBRIC BASIS</div><div class="acc-rubric">${esc(data.rubric_justification)}</div></div>` : ''}
+          </div>
+        `;
+        item.querySelector('.acc-head').addEventListener('click', () => item.classList.toggle('open'));
+        fbSec.appendChild(item);
+      });
+      reportContent.appendChild(fbSec);
+
+      // — Sample rewrite —
+      if (ev.sample_rewrite) {
+        const rwSec = document.createElement('div');
+        rwSec.className = 'report-section';
+        const rwLbl = document.createElement('div');
+        rwLbl.className = 'report-label';
+        rwLbl.textContent = 'SAMPLE REWRITE';
+        const rwBlock = document.createElement('div');
+        rwBlock.className = 'rewrite-block';
+        rwBlock.textContent = ev.sample_rewrite;
+        rwSec.appendChild(rwLbl);
+        rwSec.appendChild(rwBlock);
+        reportContent.appendChild(rwSec);
+      }
+
+      // — Acoustic metrics —
+      if (met.fluency && met.lexical && met.pronunciation) {
+        const mSec = document.createElement('div');
+        mSec.className = 'report-section';
+        const mLbl = document.createElement('div');
+        mLbl.className = 'report-label';
+        mLbl.textContent = 'ACOUSTIC METRICS';
+        mSec.appendChild(mLbl);
+        const mGrid = document.createElement('div');
+        mGrid.className = 'metrics-grid';
+        [
+          ['WPM',      fmt2(met.fluency.words_per_minute),          'words / min'],
+          ['SPEECH',   pct(met.fluency.speech_ratio),               'of duration'],
+          ['PAUSES',   (met.fluency.pauses || []).length,           'detected'],
+          ['TTR',      fmt3(met.lexical.type_token_ratio),          'vocab richness'],
+          ['LOW CONF', pct(met.pronunciation.low_confidence_ratio), 'of words'],
+          ['SCORED',   met.pronunciation.total_scored_words,        'words total'],
+        ].forEach(([label, value, sub]) => {
+          const c = document.createElement('div');
+          c.className = 'metric-card';
+          c.innerHTML = `<div class="metric-label">${label}</div><div class="metric-value">${value}</div><div class="metric-sub">${sub}</div>`;
+          mGrid.appendChild(c);
+        });
+        mSec.appendChild(mGrid);
+        reportContent.appendChild(mSec);
+      }
+    }
+
+    // ── On complete: transcript + audio + report ─────────────────────────────────
+    function onJobComplete(result) {
+      if (!result) return;
+
+      // Audio player
+      audioEl.src = `/api/jobs/${jobId}/audio`;
+      audioEl.load();
+      audioEl.addEventListener('loadedmetadata', () => {
+        timeDur.textContent = fmtTime(audioEl.duration);
+      }, { once: true });
+
+      // Transcript word highlighting with pauses and filler words
+      const words = [];
+      ((result.transcript || {}).segments || []).forEach(seg => {
+        (seg.words || []).forEach(w => words.push(w));
+      });
+      const pauses = (result.metrics || {}).fluency?.pauses || [];
+      const fillers = (result.metrics || {}).fluency?.filler_words || [];
+      renderTranscript(words, pauses, fillers);
+
+      // Populate and enable the report tab, then auto-switch to it
+      renderResultsPanel(result);
+      ptabReport.disabled = false;
+      switchTab('report');
+    }
+
+    // ── Transcript rendering ─────────────────────────────────────────────────
+    let wordSpans = [];
+
+    // Short/common words that are unlikely to be mispronounced
+    const SHORT_UNLIKELY_MISPRONOUNCED = new Set([
+      'i', 'me', 'my', 'myself', 'we', 'us', 'our', 'ours', 'ourselves',
+      'you', 'your', 'yours', 'yourself', 'yourselves',
+      'he', 'him', 'his', 'himself', 'she', 'her', 'hers', 'herself',
+      'it', 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves',
+      'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those',
+      'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+      'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing',
+      'a', 'an', 'the', 'and', 'but', 'if', 'or', 'because', 'as',
+      'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about',
+      'against', 'between', 'into', 'through', 'during', 'before', 'after',
+      'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 'off',
+      'over', 'under', 'again', 'further', 'then', 'once',
+      'here', 'there', 'when', 'where', 'why', 'how', 'all', 'each',
+      'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not',
+      'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't',
+      'can', 'will', 'just', 'don', 'should', 'now',
+      'get', 'got', 'go', 'went', 'come', 'came', 'would', 'could', 'might', 'must',
+    ]);
+
+    function isShortUnlikelyMispronounced(word) {
+      const clean = word.toLowerCase().replace(/[^a-z]/g, '');
+      return SHORT_UNLIKELY_MISPRONOUNCED.has(clean) || clean.length <= 2;
+    }
+
+    function renderTranscript(words, pauses = [], fillers = []) {
+      txWords.innerHTML = '';
+      wordSpans = [];
+
+      if (!words.length) {
+        txWords.innerHTML = '<span class="transcript-pending">No word-level alignment data available.</span>';
+        return;
+      }
+
+      // Sort pauses and fillers by start time
+      const sortedPauses = [...pauses].sort((a, b) => a.start - b.start);
+      const sortedFillers = [...fillers].sort((a, b) => a.start - b.start);
+
+      // Build sets of filler word timestamps for quick lookup
+      const fillerSet = new Set();
+      sortedFillers.forEach(f => {
+        fillerSet.add(`${f.start}-${f.end}`);
+      });
+
+      // Merge words, pauses, and fillers by time
+      const allItems = [];
+      let wordIdx = 0;
+      let pauseIdx = 0;
+      let fillerIdx = 0;
+
+      words.forEach(w => {
+        // Add any pauses that occur before this word
+        while (pauseIdx < sortedPauses.length && sortedPauses[pauseIdx].end <= w.start) {
+          allItems.push({ type: 'pause', ...sortedPauses[pauseIdx] });
+          pauseIdx++;
+        }
+        // Add any fillers that overlap with this word
+        const wordKey = `${w.start}-${w.end}`;
+        const isFiller = fillerSet.has(wordKey);
+        allItems.push({ type: 'word', ...w, isFiller });
+        wordIdx++;
+      });
+
+      // Add remaining pauses after last word
+      while (pauseIdx < sortedPauses.length) {
+        allItems.push({ type: 'pause', ...sortedPauses[pauseIdx] });
+        pauseIdx++;
+      }
+
+      // Render all items
+      allItems.forEach(item => {
+        if (item.type === 'pause') {
+          const duration = item.end - item.start;
+          const label = duration >= 1 ? `${Math.round(duration)}s` : `${Math.round(duration * 10) / 10}s`;
+
+          const span = document.createElement('span');
+          span.className = 'word pause';
+          span.textContent = `[${label}]`;
+          span.dataset.start = item.start;
+          span.dataset.end = item.end;
+          span.title = `Pause: ${Math.round(duration * 100) / 100}s [${fmtTime(item.start)} → ${fmtTime(item.end)}]`;
+
+          span.addEventListener('click', () => {
+            audioEl.currentTime = item.start;
+            if (audioEl.paused) audioEl.play();
+          });
+
+          txWords.appendChild(span);
+          txWords.appendChild(document.createTextNode(' '));
+          wordSpans.push(span);
+        } else {
+          const conf = item.confidence;
+          let cls = 'conf-none';
+          // Don't highlight short/common words as low confidence
+          // Also don't highlight filler words
+          if (!item.isFiller && conf != null && !isShortUnlikelyMispronounced(item.word)) {
+            if (conf >= 0.85) cls = 'conf-high';
+            else if (conf >= 0.65) cls = 'conf-mid';
+            else cls = 'conf-low';
+          }
+
+          const span = document.createElement('span');
+          span.className = `word ${cls}`;
+          if (isShortUnlikelyMispronounced(item.word)) span.classList.add('word-short');
+          if (item.isFiller) span.classList.add('filler');
+          span.textContent = item.word;
+          span.dataset.start = item.start;
+          span.dataset.end = item.end;
+          const titleConf = item.isFiller ? 'Filler' : (conf != null ? `Confidence: ${Math.round(conf * 100)}%` : '');
+          span.title = titleConf ? `${titleConf} [${fmtTime(item.start)} → ${fmtTime(item.end)}]` : `[${fmtTime(item.start)} → ${fmtTime(item.end)}]`;
+
+          span.addEventListener('click', () => {
+            audioEl.currentTime = item.start;
+            if (audioEl.paused) audioEl.play();
+          });
+
+          txWords.appendChild(span);
+          txWords.appendChild(document.createTextNode(' '));
+          wordSpans.push(span);
+        }
+      });
+    }
+
+    // ── Audio player ─────────────────────────────────────────────────────────
+    let lastActive = null;
+
+    playBtn.addEventListener('click', () => {
+      if (!audioEl.src) return;
+      if (audioEl.paused) audioEl.play();
+      else audioEl.pause();
+    });
+
+    audioEl.addEventListener('play',  () => {
+      playIcon.innerHTML = '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>';
+    });
+    audioEl.addEventListener('pause', () => {
+      playIcon.innerHTML = '<path d="M5 3l14 9-14 9V3z"/>';
+    });
+    audioEl.addEventListener('ended', () => {
+      playIcon.innerHTML = '<path d="M5 3l14 9-14 9V3z"/>';
+    });
+
+    audioEl.addEventListener('timeupdate', () => {
+      const cur = audioEl.currentTime;
+      const dur = audioEl.duration || 0;
+      if (dur > 0) seekBar.value = Math.round(cur / dur * 1000);
+      timeCur.textContent = fmtTime(cur);
+      highlightWord(cur);
+    });
+
+    audioEl.addEventListener('loadedmetadata', () => {
+      timeDur.textContent = fmtTime(audioEl.duration);
+    });
+
+    seekBar.addEventListener('input', () => {
+      const dur = audioEl.duration || 0;
+      if (dur > 0) audioEl.currentTime = seekBar.value / 1000 * dur;
+    });
+
+    function highlightWord(t) {
+      let found = null;
+      for (const span of wordSpans) {
+        const s = parseFloat(span.dataset.start);
+        const e = parseFloat(span.dataset.end);
+        if (t >= s && t <= e) { found = span; break; }
+      }
+      if (found === lastActive) return;
+      if (lastActive) lastActive.classList.remove('word-active');
+      if (found) {
+        found.classList.add('word-active');
+        found.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      }
+      lastActive = found;
+    }
+
+    // ── SSE stream ───────────────────────────────────────────────────────────
+    let _es = null;
+
+    function startSSE() {
+      if (_es) _es.close();
+      _es = new EventSource(`/api/jobs/${jobId}/events`);
+      _es.onmessage = (e) => {
+        let ev;
+        try { ev = JSON.parse(e.data); } catch { return; }
+        if (ev.type === 'heartbeat') return;
+        if (ev.type === 'stream_end') { _es.close(); return; }
+        handleEvent(ev);
+      };
+      _es.onerror = () => { _es.close(); };
+    }
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    async function init() {
+      if (!jobId) { window.location.href = '/'; return; }
+
+      buildStageList();
+
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`);
+        if (!res.ok) { window.location.href = '/'; return; }
+        jobData = await res.json();
+
+        metaFilename.textContent = jobData.filename;
+        metaId.textContent = `ID  ${jobId.substring(0, 8).toUpperCase()}`;
+        setChipStatus(jobData.status);
+
+        const terminal = ['completed', 'failed'].includes(jobData.status);
+
+        if (terminal) {
+          // Replay events directly from the fetched data — intervals are
+          // naturally cleaned up when the 'job.completed/failed' event plays back.
+          for (const ev of (jobData.events || [])) {
+            handleEvent(ev);
+          }
+
+          // Show fixed total elapsed
+          const startEv = (jobData.events || []).find(e => e.stage === 'job' && e.status === 'started');
+          const endEv   = (jobData.events || []).find(e => e.stage === 'job' && ['completed', 'failed'].includes(e.status));
+          if (startEv && endEv) {
+            jobElapsed.textContent = fmtMs(new Date(endEv.timestamp) - new Date(startEv.timestamp));
+          }
+
+          if (jobData.result) onJobComplete(jobData.result);
+        } else {
+          // For running / pending jobs let SSE handle event replay + live events.
+          // This avoids the double-replay / double-interval bug.
+          startSSE();
+        }
+      } catch (e) {
+        console.error('Init error:', e);
+        window.location.href = '/';
+      }
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function fmtTime(s) {
+      if (!isFinite(s)) return '0:00';
+      const m = Math.floor(s / 60);
+      const ss = String(Math.floor(s % 60)).padStart(2, '0');
+      return `${m}:${ss}`;
+    }
+
+    function fmtMs(ms) {
+      if (ms == null) return '—';
+      if (ms < 1000) return `${ms}ms`;
+      const s = ms / 1000;
+      if (s < 60) return `${fmt2(s)}s`;
+      const m = Math.floor(s / 60);
+      const sec = String(Math.floor(s % 60)).padStart(2, '0');
+      return `${m}m${sec}s`;
+    }
+
+    function fmt2(n) { return (Math.round(n * 100) / 100).toString(); }
+    function fmt3(n) { return (Math.round(n * 1000) / 1000).toFixed(3); }
+    function pct(n)  { return `${Math.round(n * 100)}%`; }
+
+    function syntaxHighlight(json) {
+      return json.replace(
+        /("(?:[^"\\]|\\.)*")(\s*:)?|(\b(?:true|false|null)\b)|(-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
+        (match, str, colon, kw, num) => {
+          if (str) {
+            return colon
+              ? `<span class="jk">${escHtml(str)}</span>${colon}`
+              : `<span class="js">${escHtml(str)}</span>`;
+          }
+          if (kw)  return kw === 'null' ? `<span class="jl">${kw}</span>` : `<span class="jb">${kw}</span>`;
+          if (num) return `<span class="jn">${num}</span>`;
+          return match;
+        }
+      );
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function esc(v) {
+      return escHtml(String(v ?? ''));
+    }
+
+    // ── Boot ─────────────────────────────────────────────────────────────────
+    init();
+  </script>
+</body>
+</html>
