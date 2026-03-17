@@ -109,6 +109,24 @@ class AssessmentReport(BaseModel):
     llm_evaluation: dict[str, Any]
 
 
+class TranscribeReport(BaseModel):
+    transcript: TranscriptResult
+    metrics: AggregateMetrics
+
+
+class BatchQuestionPayload(BaseModel):
+    question_text: str
+    transcript: TranscriptResult
+    metrics: AggregateMetrics
+
+
+class EvaluateBatchRequest(BaseModel):
+    batch_id: str
+    topic_title: str
+    part: int
+    questions: list[BatchQuestionPayload]
+
+
 class SubmitAssessmentResponse(BaseModel):
     task_id: str
 

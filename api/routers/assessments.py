@@ -1,10 +1,10 @@
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, UploadFile, status, Body
 
 from core.settings import get_settings
-from models.schemas import SubmitAssessmentResponse, TaskStatusResponse
+from models.schemas import SubmitAssessmentResponse, TaskStatusResponse, EvaluateBatchRequest
 
 router = APIRouter()
 
@@ -37,6 +37,41 @@ async def submit_assessment(audio: UploadFile = File(...)) -> SubmitAssessmentRe
     from worker.tasks import assess_audio_task
 
     task = assess_audio_task.delay(str(stored_path))
+    return SubmitAssessmentResponse(task_id=task.id)
+
+
+@router.post("/transcribe", response_model=SubmitAssessmentResponse, status_code=status.HTTP_202_ACCEPTED)
+async def transcribe_assessment(audio: UploadFile = File(...)) -> SubmitAssessmentResponse:
+    settings = get_settings()
+    raw_bytes = await audio.read()
+
+    if not raw_bytes:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded audio is empty.")
+
+    max_size_bytes = settings.max_upload_size_mb * 1024 * 1024
+    if len(raw_bytes) > max_size_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Audio file exceeds {settings.max_upload_size_mb}MB limit.",
+        )
+
+    settings.upload_dir.mkdir(parents=True, exist_ok=True)
+    suffix = Path(audio.filename or "audio.wav").suffix or ".wav"
+    stored_path = settings.upload_dir / f"{uuid4()}{suffix}"
+    stored_path.write_bytes(raw_bytes)
+
+    from worker.tasks import transcribe_audio_task
+
+    task = transcribe_audio_task.delay(str(stored_path))
+    return SubmitAssessmentResponse(task_id=task.id)
+
+
+@router.post("/evaluate", response_model=SubmitAssessmentResponse, status_code=status.HTTP_202_ACCEPTED)
+async def evaluate_batch(request: EvaluateBatchRequest = Body(...)) -> SubmitAssessmentResponse:
+    from worker.tasks import evaluate_batch_task
+    
+    # Pass as dict to celery to avoid serialization issues
+    task = evaluate_batch_task.delay(request.model_dump(mode="json"))
     return SubmitAssessmentResponse(task_id=task.id)
 
 
