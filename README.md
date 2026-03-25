@@ -104,6 +104,8 @@ Or use the standalone frontend server (no Celery required):
 uvicorn frontend.control_server:app --port 8001 --reload
 ```
 
+The standalone HTML frontend can also use an explicit backend origin. When `FRONTEND_API_BASE_URL` is set, the browser uses that value instead of hardcoded relative `/api/...` requests. That URL should point at a service exposing the `/api/jobs/...` routes, typically the control server.
+
 ## API
 
 | Method | Path | Description |
@@ -175,3 +177,26 @@ Key `.env` variables:
 | `SCORING_CALIBRATION_BIAS` | `0.0` | Global deterministic score bias |
 | `AUDIO_RETENTION_HOURS` | `24` | Hours to keep audio (0=immediate delete, -1=forever) |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model for evaluation |
+| `CLOUDFLARE_TUNNEL_TOKEN` | `` | Named Cloudflare Tunnel token for a stable public backend URL |
+| `PUBLIC_API_BASE_URL` | `` | Stable public HTTPS URL for the AA API, for example `https://api.example.com` |
+| `FRONTEND_API_BASE_URL` | `` | Optional origin used by the standalone HTML frontend for `/api/jobs/...` calls |
+
+## Stable Cloudflare tunnel
+
+If you want the AA backend to stop rotating through `trycloudflare.com`, create a named Cloudflare Tunnel and publish a short hostname in your domain.
+
+Example for `api.yall.uz`:
+
+```bash
+python configure_cloudflare_service.py \
+  --api-token "$CLOUDFLARE_API_TOKEN" \
+  --account-id "$CLOUDFLARE_ACCOUNT_ID" \
+  --zone-id "$CLOUDFLARE_ZONE_ID" \
+  --zone-name yall.uz \
+  --tunnel-name aa-backend \
+  --hostname api \
+  --service http://127.0.0.1:8000 \
+  --env-file .env
+```
+
+That writes `CLOUDFLARE_TUNNEL_TOKEN` and `PUBLIC_API_BASE_URL=https://api.yall.uz` into `.env`. After that, `start_aa.ps1` automatically uses named-tunnel mode instead of creating a rotating quick tunnel.

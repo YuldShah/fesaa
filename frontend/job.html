@@ -948,6 +948,7 @@
     <audio id="audio-el" preload="none"></audio>
   </section>
 
+  <script src="/frontend-config.js"></script>
   <script>
     // ── Pipeline stage definitions ───────────────────────────────────────────
     const STAGES = [
@@ -961,6 +962,8 @@
     ];
 
     // ── State ────────────────────────────────────────────────────────────────
+  const API_BASE = (window.__AA_FRONTEND_CONFIG__?.apiBaseUrl || '').replace(/\/+$/, '');
+  const apiUrl = (path) => API_BASE ? `${API_BASE}${path}` : path;
     const jobId = window.location.pathname.split('/').filter(Boolean).pop();
     let jobData = null;
     let selectedStage = null;
@@ -1109,7 +1112,7 @@
         setChipStatus(ev.status);
 
         if (ev.status === 'completed') {
-          fetch(`/api/jobs/${jobId}`)
+          fetch(apiUrl(`/api/jobs/${jobId}`))
             .then(r => r.json())
             .then(data => {
               jobData = data;
@@ -1449,7 +1452,7 @@
       if (!result) return;
 
       // Audio player
-      audioEl.src = `/api/jobs/${jobId}/audio`;
+      audioEl.src = apiUrl(`/api/jobs/${jobId}/audio`);
       audioEl.load();
       audioEl.addEventListener('loadedmetadata', () => {
         timeDur.textContent = fmtTime(audioEl.duration);
@@ -1654,7 +1657,7 @@
 
     function startSSE() {
       if (_es) _es.close();
-      _es = new EventSource(`/api/jobs/${jobId}/events`);
+      _es = new EventSource(apiUrl(`/api/jobs/${jobId}/events`));
       _es.onmessage = (e) => {
         let ev;
         try { ev = JSON.parse(e.data); } catch { return; }
@@ -1672,7 +1675,7 @@
       buildStageList();
 
       try {
-        const res = await fetch(`/api/jobs/${jobId}`);
+        const res = await fetch(apiUrl(`/api/jobs/${jobId}`));
         if (!res.ok) { window.location.href = '/'; return; }
         jobData = await res.json();
 

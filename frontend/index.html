@@ -527,9 +527,12 @@
 
   </div>
 
+  <script src="/frontend-config.js"></script>
   <script>
     // ── State ────────────────────────────────────────────────────────────────
     const TOTAL_STAGES = 7;
+    const API_BASE = (window.__AA_FRONTEND_CONFIG__?.apiBaseUrl || '').replace(/\/+$/, '');
+    const apiUrl = (path) => API_BASE ? `${API_BASE}${path}` : path;
     let _jobs = [];
     let _pollTimer = null;
     let _liveTimers = {};  // job_id -> intervalId for running elapsed display
@@ -538,7 +541,7 @@
     // ── Polling ──────────────────────────────────────────────────────────────
     async function loadJobs() {
       try {
-        const res = await fetch('/api/jobs');
+        const res = await fetch(apiUrl('/api/jobs'));
         if (!res.ok) throw new Error(res.statusText);
         _jobs = await res.json();
         renderJobs();
@@ -817,7 +820,7 @@
       fd.append('audio', file);
 
       try {
-        const res = await fetch('/api/jobs', { method: 'POST', body: fd });
+        const res = await fetch(apiUrl('/api/jobs'), { method: 'POST', body: fd });
         if (!res.ok) {
           const err = await res.json().catch(() => ({ detail: res.statusText }));
           throw new Error(err.detail || res.statusText);
@@ -834,7 +837,7 @@
 
     async function deleteJob(id) {
       if (!confirm('Delete this assessment job?')) return;
-      await fetch(`/api/jobs/${id}`, { method: 'DELETE' });
+      await fetch(apiUrl(`/api/jobs/${id}`), { method: 'DELETE' });
       await loadJobs();
     }
 

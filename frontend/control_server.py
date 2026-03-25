@@ -29,7 +29,7 @@ sys.path.insert(0, str(ROOT))
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 
 from core.settings import get_settings
 from models.schemas import AggregateMetrics, AssessmentReport
@@ -339,6 +339,18 @@ def _run_pipeline(job_id: str, audio_path: str) -> None:
 @app.get("/")
 async def _root():
     return FileResponse(str(HERE / "index.html"))
+
+
+@app.get("/frontend-config.js")
+async def frontend_config():
+    settings = get_settings()
+    api_base = settings.frontend_api_base_url.rstrip("/")
+    payload = {"apiBaseUrl": api_base}
+    return Response(
+        content=f"window.__AA_FRONTEND_CONFIG__ = Object.freeze({json.dumps(payload)});",
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/job/{job_id}")

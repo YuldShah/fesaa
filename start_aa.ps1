@@ -15,6 +15,20 @@ $celery   = "$aaDir\venv\Scripts\celery.exe"
 $cfExe    = "C:\Users\Based\scoop\shims\cloudflared.exe"
 $pidDir   = "$aaDir\.pids"
 
+function Get-EnvValue {
+    param(
+        [string]$Content,
+        [string]$Key
+    )
+
+    if (-not $Content) { return '' }
+    $match = [regex]::Match($Content, "(?m)^$([regex]::Escape($Key))=(.*)$")
+    if ($match.Success) {
+        return $match.Groups[1].Value.Trim()
+    }
+    return ''
+}
+
 # ─── Helper: stop everything ─────────────────────────────────────────────────
 
 function Stop-AAServices {
@@ -65,6 +79,11 @@ if (-not (Test-Path $cfExe)) {
 if (-not (Test-Path $pidDir)) {
     New-Item -ItemType Directory -Path $pidDir | Out-Null
 }
+
+$envPath = "$aaDir\.env"
+$envContent = if (Test-Path $envPath) { Get-Content $envPath -Raw } else { '' }
+$namedTunnelToken = Get-EnvValue $envContent 'CLOUDFLARE_TUNNEL_TOKEN'
+$publicApiBaseUrl = (Get-EnvValue $envContent 'PUBLIC_API_BASE_URL').TrimEnd('/')
 
 # ─── Stop any existing services first ────────────────────────────────────────
 Stop-AAServices
@@ -147,42 +166,61 @@ if (-not $listening) {
 }
 Write-Host '  Confirmed: port 8000 is listening'
 
-# ─── 4. Start Cloudflare quick tunnel ────────────────────────────────────────
-Write-Host '--- Starting Cloudflare quick tunnel ---'
+# ─── 4. Start Cloudflare tunnel ──────────────────────────────────────────────
 $tunnelStderr = "$aaDir\tunnel_stderr.log"
 '' | Set-Content -Path $tunnelStderr -Encoding UTF8
 
-$cfProc = Start-Process `
-    -FilePath $cfExe `
-    -ArgumentList 'tunnel', '--url', 'http://localhost:8000' `
-    -WorkingDirectory $aaDir `
-    -RedirectStandardOutput "$aaDir\tunnel_stdout.log" `
-    -RedirectStandardError $tunnelStderr `
-    -WindowStyle Hidden `
-    -PassThru
+if ($namedTunnelToken) {
+    if (-not $publicApiBaseUrl) {
+        Write-Error 'ERROR: CLOUDFLARE_TUNNEL_TOKEN is set, but PUBLIC_API_BASE_URL is empty in .env'
+        exit 1
+    }
 
-$cfProc.Id | Out-File "$pidDir\cloudflared.pid" -Encoding ascii
-Write-Host "  cloudflared started (PID $($cfProc.Id))"
+    Write-Host '--- Starting Cloudflare named tunnel ---'
+    $cfProc = Start-Process `
+        -FilePath $cfExe `
+        -ArgumentList 'tunnel', 'run', '--token', $namedTunnelToken `
+        -WorkingDirectory $aaDir `
+        -RedirectStandardOutput "$aaDir\tunnel_stdout.log" `
+        -RedirectStandardError $tunnelStderr `
+        -WindowStyle Hidden `
+        -PassThru
 
-# ─── 5. Wait for tunnel URL ─────────────────────────────────────────────────
-Write-Host '--- Waiting for tunnel URL (up to 30s) ---'
-$tunnelUrl = $null
-$attempts = 0
-while (-not $tunnelUrl -and $attempts -lt 30) {
-    Start-Sleep -Seconds 1
-    $attempts++
-    if (Test-Path $tunnelStderr) {
-        $logContent = Get-Content $tunnelStderr -Raw -ErrorAction SilentlyContinue
-        if ($logContent -match 'https://[a-z0-9\-]+\.trycloudflare\.com') {
-            $tunnelUrl = $Matches[0]
+    $tunnelUrl = $publicApiBaseUrl
+    Start-Sleep -Seconds 3
+} else {
+    Write-Host '--- Starting Cloudflare quick tunnel ---'
+    $cfProc = Start-Process `
+        -FilePath $cfExe `
+        -ArgumentList 'tunnel', '--url', 'http://localhost:8000' `
+        -WorkingDirectory $aaDir `
+        -RedirectStandardOutput "$aaDir\tunnel_stdout.log" `
+        -RedirectStandardError $tunnelStderr `
+        -WindowStyle Hidden `
+        -PassThru
+
+    Write-Host '--- Waiting for tunnel URL (up to 30s) ---'
+    $tunnelUrl = $null
+    $attempts = 0
+    while (-not $tunnelUrl -and $attempts -lt 30) {
+        Start-Sleep -Seconds 1
+        $attempts++
+        if (Test-Path $tunnelStderr) {
+            $logContent = Get-Content $tunnelStderr -Raw -ErrorAction SilentlyContinue
+            if ($logContent -match 'https://[a-z0-9\-]+\.trycloudflare\.com') {
+                $tunnelUrl = $Matches[0]
+            }
         }
+    }
+
+    if (-not $tunnelUrl) {
+        Write-Error 'ERROR: Could not capture tunnel URL after 30s. Check tunnel_stderr.log'
+        exit 1
     }
 }
 
-if (-not $tunnelUrl) {
-    Write-Error 'ERROR: Could not capture tunnel URL after 30s. Check tunnel_stderr.log'
-    exit 1
-}
+$cfProc.Id | Out-File "$pidDir\cloudflared.pid" -Encoding ascii
+Write-Host "  cloudflared started (PID $($cfProc.Id))"
 
 # ─── 6. Summary ──────────────────────────────────────────────────────────────
 Write-Host ''
@@ -192,6 +230,11 @@ Write-Host '============================================='
 Write-Host ''
 Write-Host "  Local:   http://localhost:8000"
 Write-Host "  Tunnel:  $tunnelUrl"
+if ($namedTunnelToken) {
+    Write-Host '  Mode:    named tunnel'
+} else {
+    Write-Host '  Mode:    quick tunnel'
+}
 Write-Host ''
 Write-Host "  Celery PID:      $($celeryProc.Id)"
 Write-Host "  Uvicorn PID:     $($uvicornProc.Id)"

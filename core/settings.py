@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-2.5-flash"
 
     api_key: str = Field(default="")
+    cloudflare_tunnel_token: str = Field(default="")
 
     pause_threshold_seconds: float = 0.40
     low_confidence_threshold: float = 0.60
@@ -41,6 +42,8 @@ class Settings(BaseSettings):
     reports_dir: Path = Path("reports")
     ffmpeg_path: str = "ffmpeg"
     max_upload_size_mb: int = 25
+    public_api_base_url: str = ""
+    frontend_api_base_url: str = ""
 
     # Retention: hours to keep uploaded/preprocessed audio after report is saved.
     # 0 = delete immediately after report, -1 = keep forever.
