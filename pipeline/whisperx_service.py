@@ -1,4 +1,5 @@
 from pathlib import Path
+import logging
 import re
 from typing import Any
 
@@ -7,6 +8,8 @@ import torch
 from core.settings import Settings
 from models.schemas import LowConfidenceWord, PronunciationMetrics, SpeechSegment, TranscriptResult, WordTiming
 from pipeline.interfaces import ASRProvider, PronunciationProvider
+
+logger = logging.getLogger(__name__)
 
 TOKEN_PATTERN = re.compile(r"[A-Za-z']+")
 
@@ -123,15 +126,36 @@ class WhisperXProvider(ASRProvider, PronunciationProvider):
         self.settings = settings
         self.requested_device = settings.whisperx_device
         requested = settings.whisperx_device.strip().lower()
-        if not requested.startswith("cuda"):
-            raise RuntimeError(
-                "WhisperX is configured in GPU-only mode. Set WHISPERX_DEVICE to 'cuda' or 'cuda:0'."
-            )
-        if not torch.cuda.is_available() or torch.cuda.device_count() == 0:
-            raise RuntimeError("WhisperX GPU-only mode requires a detected CUDA device.")
+        has_cuda = bool(torch.cuda.is_available() and torch.cuda.device_count() > 0)
 
-        self.cuda_available = True
-        self.device = settings.whisperx_device
+        if requested.startswith("cuda"):
+            if has_cuda:
+                self.cuda_available = True
+                self.device = settings.whisperx_device
+            else:
+                # Graceful fallback keeps service available when CUDA init fails in containerized runtimes.
+                logger.warning(
+                    "CUDA requested but unavailable; falling back to CPU WhisperX (slower)."
+                )
+                self.cuda_available = False
+                self.device = "cpu"
+        elif requested == "cpu":
+            self.cuda_available = False
+            self.device = "cpu"
+        else:
+            raise RuntimeError(
+                "Invalid WHISPERX_DEVICE. Use 'cuda', 'cuda:0', or 'cpu'."
+            )
+
+        self.model_name = settings.whisperx_model_name
+        if not self.cuda_available and self.model_name.lower().startswith("large"):
+            logger.warning(
+                "CPU fallback active; downgrading WHISPERX_MODEL_NAME from %s to 'base' for stability.",
+                self.model_name,
+            )
+            self.model_name = "base"
+
+        self.compute_type = settings.whisperx_compute_type if self.cuda_available else "int8"
         self._asr_model: Any | None = None
 
     def runtime_info(self) -> dict[str, Any]:
@@ -139,8 +163,8 @@ class WhisperXProvider(ASRProvider, PronunciationProvider):
             "requested_device": self.requested_device,
             "effective_device": self.device,
             "cuda_available": self.cuda_available,
-            "compute_type": self.settings.whisperx_compute_type,
-            "model_name": self.settings.whisperx_model_name,
+            "compute_type": self.compute_type,
+            "model_name": self.model_name,
         }
         if self.cuda_available:
             info["cuda_device_count"] = torch.cuda.device_count()
@@ -158,9 +182,9 @@ class WhisperXProvider(ASRProvider, PronunciationProvider):
         if self._asr_model is None:
             try:
                 self._asr_model = whisperx_module.load_model(
-                    self.settings.whisperx_model_name,
+                    self.model_name,
                     self.device,
-                    compute_type=self.settings.whisperx_compute_type,
+                    compute_type=self.compute_type,
                     language=self.settings.whisperx_language,
                 )
             except RuntimeError as exc:
@@ -173,9 +197,6 @@ class WhisperXProvider(ASRProvider, PronunciationProvider):
         return self._asr_model
 
     def transcribe_with_alignment(self, audio_path: Path) -> TranscriptResult:
-        if not self.device.strip().lower().startswith("cuda") or not torch.cuda.is_available():
-            raise RuntimeError("ASR stage aborted: WhisperX is GPU-only and CUDA is not active.")
-
         whisperx = self._load_whisperx()
 
         try:
@@ -211,7 +232,7 @@ class WhisperXProvider(ASRProvider, PronunciationProvider):
                 segments=segments,
             )
         finally:
-            if torch.cuda.is_available():
+            if self.cuda_available and torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
     def extract_pronunciation_metrics(
